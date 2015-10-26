@@ -1,0 +1,30 @@
+{
+    <libcapture_issue>
+        Memcheck:Leak
+        fun:calloc
+        fun:_dlerror_run
+        fun:dlsym
+        ...
+}
+{
+   <can_t_resolve_properly_sigalt_stack_malloc>
+   Memcheck:Leak
+   fun:calloc
+   fun:bximem_calloc
+   fun:bxilog_install_sighandler
+   ...
+}
+{
+   <socketcall_sendto>
+   Memcheck:Param
+   socketcall.sendto(msg)
+   fun:send
+   ...
+}
+{
+   <socketcall_sendto>
+   Memcheck:Param
+   socketcall.send(msg)
+   fun:send
+   ...
+}

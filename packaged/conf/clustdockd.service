@@ -1,0 +1,12 @@
+# To be put at: /usr/lib/systemd/system/clustdock-server.service
+
+[Unit]
+Description=Service for spawning VMs and Docker containers
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/sudo /bin/bash -c "/root/.local/bxidocker/clustdockd -l INFO >> /var/log/clustdockd.log 2>&1"
+
+[Install]
+WantedBy=multi-user.target

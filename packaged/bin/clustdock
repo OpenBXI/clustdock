@@ -1,0 +1,188 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+###############################################################################
+# Author : Antoine Sax <antoine.sax@bull.net>
+# Contributors :
+###############################################################################
+'''Provides stuff to spawn a docker cluster well configured'''
+
+from __future__ import print_function
+import sys
+import argparse
+import os
+import logging
+from configobj import ConfigObj
+import zmq
+import msgpack
+
+CONFIG_FILE = os.path.join(os.path.dirname(sys.argv[0]), "clustdock.conf")
+
+
+class ClustdockClient(object):
+    '''Class representing the client part of the docker/libvirt architecture'''
+
+    def __init__(self, server):
+        self.ctx = zmq.Context()
+        self.socket = self.ctx.socket(zmq.REQ)
+        self.server = server
+        try:
+            self.socket.connect(server)
+        except zmq.error.ZMQError:
+            _LOGGER.error("Could not connect to server at %s. Exiting", server)
+            sys.exit(3)
+
+    def list(self, **kwargs):
+        try:
+            self.socket.send("list")
+            self.socket.setsockopt(zmq.RCVTIMEO, 5000)
+            msg = self.socket.recv()
+            liste = msgpack.unpackb(msg)
+            #print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
+            print("%-7s %-20s %-40s" % ("#Nodes", "Nodeset", "Hosts"))
+            print("-" * 77)
+            for item in liste:
+                #print("{0:<10s} {1:<7d} {2:<20s} {3:<40s}".format(*item))
+                print("{1:<7d} {2:<20s} {3:<40s}".format(*item))
+        except zmq.error.ZMQError:
+            sys.stderr.write("Error when trying to contact server.\n")
+            return 2
+
+    def spawn(self, profil, clustername, nb_nodes, host, **kwargs):
+        """Ask server to spawn a cluster"""
+        rc = 0
+        try:
+            self.socket.send("spawn %s %s %s %s" % (profil, clustername, nb_nodes, host))
+            res = msgpack.unpackb(self.socket.recv())
+            for line in res:
+                if line.startswith('Error'):
+                    sys.stderr.write("%s\n" % line)
+                    rc = 1
+                else:
+                    print(line)
+        except zmq.error.ZMQError:
+            sys.stderr.write("Error when trying to contact server.\n")
+            rc = 2
+        return rc
+
+    def stop(self, nodeset, **kwargs):
+        """docstring"""
+        try:
+            _LOGGER.debug("Trying to delete %s", nodeset)
+            self.socket.send("del_node %s" % nodeset)
+            self.socket.setsockopt(zmq.RCVTIMEO, 5000)
+            res = msgpack.unpackb(self.socket.recv())
+            print(res)
+            if str(res).startswith('Error'):
+                return 1
+        except zmq.error.ZMQError:
+            sys.stderr.write("Error when trying to contact server.\n")
+            return 2
+    
+    def getip(self, nodeset, **kwargs):
+        try:
+            self.socket.send("get_ip %s" % nodeset)
+            msg = self.socket.recv()
+            res = msgpack.unpackb(msg)
+            if len(res) == 1:
+                print(res[0][0])
+            else:
+                for item in res:
+                    print("{0}\t{1}".format(*item))
+        except zmq.error.ZMQError:
+            sys.stderr.write("Error when trying to contact server.\n")
+            return 2
+
+
+def check_docker_conf(cluster):
+    '''check docker configuration'''
+    _LOGGER.info("Base image: %s", 
+                 cluster['img'])
+    _LOGGER.info("Mngt node: %s", 
+                 cluster.get('mngt', 'no mngt node'))
+    _LOGGER.info("Mngt node image: %s", 
+                 cluster.get('mngt_img', cluster['img']))
+    _LOGGER.info("Docker opts: %s", 
+                 cluster.get('docker_opts', ''))
+
+
+def check_libvirt_conf(cluster):
+    '''check libvirt configuration'''
+    _LOGGER.info("Base image: %s", cluster['img'])
+    _LOGGER.info("Image dir: %s", cluster['img_dir'])
+
+
+def main(args):
+    '''Main function'''
+    _LOGGER.debug("Entering main function")
+    server = args.server if args.server is not None else args.cfg.get('SERVER_URL', None)
+    client = ClustdockClient(server)
+    func = getattr(client, args.cmd, None)
+    if func is not None:
+        return func(**vars(args))
+    else:
+        _LOGGER.debug("No function named %s", args.cmd)
+        return 1
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Stuff to deal with clustdock-server')
+    parser.add_argument('-s', '--server', 
+                        help="Url of the clustdock-server (ex: tcp://athena:5050)")
+    subparsers = parser.add_subparsers(title="sub-commands", dest="cmd")
+
+    # spawn command
+    parser_spawn = subparsers.add_parser("spawn",
+                                         help="Spawn a docker cluster")
+    parser_spawn.add_argument('profil',
+                              help="Profil of nodes to spawn")
+    parser_spawn.add_argument('clustername',
+                              help="Name of the cluster")
+    parser_spawn.add_argument('nb_nodes', 
+                              type=int,
+                              nargs='?',
+                              default=1,
+                              help="Number of nodes. default: %(default)s")
+    
+    # stop command
+    parser_stop = subparsers.add_parser("stop",
+                                        help="Stop specified nodes")
+    parser_stop.add_argument('nodeset',
+                             help="Nodes to stop. (nodeset)")
+    
+    # get_ip command
+    parser_get_ip = subparsers.add_parser("getip",
+                                        help="Get @IP of specified nodes")
+    parser_get_ip.add_argument('nodeset',
+                             help="Node names (nodeset)")
+    # list command
+    parser_list = subparsers.add_parser("list",
+                                        help="List docker clusters already"\
+                                             " spawn on the network")
+   
+    # Configuration file
+    parser.add_argument("-c", "--cfgfile", 
+                        default=CONFIG_FILE,
+                        help="Configuration file. default: %(default)s")
+    # Host
+    parser.add_argument("-n", "--host", 
+                        default=None,
+                        dest="host",
+                        help="Host on which specifed action will be executed. Default is localhost.")
+    # Logging level
+    parser.add_argument('--loglevel', '-l', 
+                        metavar='LEVEL',
+                        help='The log level to use', 
+                        default=logging.WARNING)
+
+
+    _args = parser.parse_args()
+
+    logging.basicConfig(level=_args.loglevel,
+        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
+    _LOGGER = logging.getLogger()
+    
+    # Load configuration
+    cfg = ConfigObj(_args.cfgfile)
+    _args.cfg = cfg
+
+    sys.exit(main(_args))
