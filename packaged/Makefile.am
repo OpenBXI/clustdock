@@ -4,7 +4,7 @@ if HAVE_SYSTEMD
 dist_systemdsys_DATA=\
 					 conf/clustdockd.service
 sysconfigdir=$(sysconfdir)
-dist_sysconfig_DATA+=\
+dist_sysconfig_DATA=\
 					conf/clustdockd.conf\
 					conf/clustdock.conf
 endif
