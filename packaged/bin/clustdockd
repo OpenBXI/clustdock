@@ -21,7 +21,6 @@ import dns.zone
 import dns.query
 import time
 import libvirt
-import guestfs
 from ipaddr import IPv4Network, AddressValueError
 import subprocess as sp
 import multiprocessing as mp
@@ -299,14 +298,12 @@ class LibvirtNode(VirtualNode):
             xmlfile.write(new_xml)
         # Define the new node
         try:
-            gfs = guestfs.GuestFS(python_return_dict=True)
-            gfs.add_drive_opts(self.img_path)
-            gfs.launch()
-            gfs.mount("/dev/mapper/rhel-root", "/")
-            gfs.write("/etc/hostname", '%s\n' % self.name)
-            gfs.sync()
-            gfs.umount_all()
-            gfs.close()
+            try:
+                cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
+                sp.check_call(cmd, shell=True)
+            except sp.CalledProcessError:
+                _LOGGER.error("Setting hostname for %s failed", self.name)
+                sys.exit(1)
             cvirt.defineXML(new_xml)
             dom = cvirt.lookupByName(self.name)
             dom.create()
