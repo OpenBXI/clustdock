@@ -138,6 +138,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 
 
 %config(noreplace) %{target_conf_dir}/clustdockd.conf
+%config(noreplace) %{target_conf_dir}/clustdock.conf
 
 # Changelog is automatically generated (see Makefile)
 # The %doc macro already contain a default path (usually /usr/doc/)

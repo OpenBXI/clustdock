@@ -1,10 +1,12 @@
 SUBDIRS=doc
 
+dist_sysconfig_DATA=\
+					 conf/clustdock.conf
 if HAVE_SYSTEMD
 dist_systemdsys_DATA=\
 						 conf/clustdockd.service
 sysconfigdir=$(sysconfdir)
-dist_sysconfig_DATA=\
+dist_sysconfig_DATA+=\
 					conf/clustdockd.conf
 endif
 
