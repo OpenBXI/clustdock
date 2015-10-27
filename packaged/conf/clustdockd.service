@@ -6,7 +6,7 @@ Requires=network-online.target
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/sudo /bin/bash -c "/root/.local/bxidocker/clustdockd -l INFO >> /var/log/clustdockd.log 2>&1"
+ExecStart="clustdockd -c /etc/clustdockd.conf -l INFO >> /var/log/clustdockd.log 2>&1"
 
 [Install]
 WantedBy=multi-user.target
