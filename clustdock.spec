@@ -35,7 +35,7 @@
 %define src_doc_dir doc
 %define target_systemd_dir %{?systemd_dir}%{!?systemd_dir:%(pkg-config systemd --variable=systemdsystemunitdir)}
 
-#%define target_conf_dir /etc
+%define target_conf_dir /etc
 %define target_prefix  /usr/
 %define target_bin_dir  %{target_prefix}bin
 %define target_lib_dir  %{python2_sitelib}
@@ -137,7 +137,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 
 
 
-#%config(noreplace) %{target_conf_dir}/my.conf
+%config(noreplace) %{target_conf_dir}/clustdockd.conf
 
 # Changelog is automatically generated (see Makefile)
 # The %doc macro already contain a default path (usually /usr/doc/)
