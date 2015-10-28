@@ -15,7 +15,7 @@ from configobj import ConfigObj
 import zmq
 import msgpack
 
-CONFIG_FILE = os.path.join(os.path.dirname(sys.argv[0]), "clustdock.conf")
+CONFIG_FILE = "/etc/clustdock.conf"
 
 
 class ClustdockClient(object):
@@ -114,7 +114,11 @@ def check_libvirt_conf(cluster):
 def main(args):
     '''Main function'''
     _LOGGER.debug("Entering main function")
-    server = args.server if args.server is not None else args.cfg.get('SERVER_URL', None)
+    server = "tcp://localhost:5050"
+    if hasattr(args, 'cfg'):
+        server = args.cfg.get('SERVER_URL', server)
+    if args.server:
+        server = args.server
     client = ClustdockClient(server)
     func = getattr(client, args.cmd, None)
     if func is not None:
@@ -126,8 +130,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Stuff to deal with clustdock-server')
-    parser.add_argument('-s', '--server', 
-                        help="Url of the clustdock-server (ex: tcp://athena:5050)")
+    parser.add_argument('-s', '--server',
+                        help="Url of the clustdock-server")
     subparsers = parser.add_subparsers(title="sub-commands", dest="cmd")
 
     # spawn command
@@ -182,7 +186,10 @@ if __name__ == "__main__":
     _LOGGER = logging.getLogger()
     
     # Load configuration
-    cfg = ConfigObj(_args.cfgfile)
-    _args.cfg = cfg
+    if os.path.exists(_args.cfgfile):
+        cfg = ConfigObj(_args.cfgfile)
+        _args.cfg = cfg
+    else:
+        _LOGGER.debug("Configuration file not found. using defaults")
 
     sys.exit(main(_args))

@@ -246,15 +246,16 @@ class LibvirtNode(VirtualNode):
             self.supl_iface = [self.supl_iface]
         
     @property
-    def baseimg_path(self):
-        """Return path of the base image"""
-        return os.path.join(self.img_dir, "%s.img" % self.baseimg)
-
-    @property
     def img_path(self):
         """Return path of the node image"""
-        return os.path.join(self.img_dir, "%s.img" % self.name)
-        
+        return os.path.join(self.img_dir, "%s.qcow2" % self.name)
+    
+    def get_baseimg_path(self, xmldesc):
+        """Get base image path from xml description"""
+        tree = etree.fromstring(xmldesc)
+        path = tree.xpath("//devices/disk/source/@file")[0]
+        self.baseimg_path = path
+
     def start(self):
         """Start libvirt virtual machine"""
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
@@ -273,8 +274,12 @@ class LibvirtNode(VirtualNode):
             _LOGGER.error("Image %s already exists. Skipping", self.name)
             sys.exit(1)
         
+        # Get xml description of the base image
+        bxml_desc = base_dom.XMLDesc()
+        
         # Create new disk file for the node
-        # Just save diffs from based image 
+        # Just save diffs from based image
+        self.get_baseimg_path(bxml_desc)
         cmd = "qemu-img create -f qcow2 -b %s %s" % (self.baseimg_path, self.img_path)
         _LOGGER.info("Launching %s", cmd)
         try:
@@ -286,8 +291,6 @@ class LibvirtNode(VirtualNode):
             _LOGGER.error("Something went wrong when spawning %s", self.name)
             sys.exit(1)
         
-        # Get xml description of the base image
-        bxml_desc = base_dom.XMLDesc()
         # Change xml content
         new_xml = self.build_xml(bxml_desc)
         if self.supl_iface:
@@ -378,7 +381,10 @@ class LibvirtNode(VirtualNode):
         new_xml = []
         for line in xml_info.split('\n'):
             if self.baseimg in line:
-                new_xml.append(line.replace(self.baseimg, self.name))
+                if self.baseimg_path in line:
+                    new_xml.append(line.replace(self.baseimg_path, self.img_path))
+                else:
+                    new_xml.append(line.replace(self.baseimg, self.name))
             elif 'uuid' in line:
                 continue
             elif 'mac address' in line:
