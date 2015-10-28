@@ -166,11 +166,11 @@ class DockerNode(VirtualNode):
 
     def _add_iface(self, iface):
         """Add another interface to the docker container"""
-        prefix = "ssh %s" % self.host if self.host else ''
+        prefix = "ssh %s" % self.host if self.host != 'localhost' else ''
         br, eth, ip = iface
         try:
             # ip addr show docker0 -> check the bridge presence
-            cmd = "%s ip addr show %s | grep inet | awk '{print $2}'" % (
+            cmd = "%s ip addr show %s | grep 'inet ' | awk '{print $2}'" % (
                     prefix, 
                     br)
             p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
