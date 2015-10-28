@@ -221,7 +221,7 @@ class DockerNode(VirtualNode):
                   'ip netns exec {pid} ip link set dev {b_if} name %s \n' % eth + \
                   'ip netns exec {pid} ip link set %s up\n' % eth + \
                   'rm -f /var/run/netns/{pid}'
-            if self.host:
+            if self.host != 'localhost':
                 cmd = 'ssh -T %s <<ENDSSH \n ' % self.host + \
                       '%s \n' % cmd + \
                       'ENDSSH'
