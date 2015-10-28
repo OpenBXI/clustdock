@@ -133,14 +133,14 @@ class DockerNode(VirtualNode):
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
         res = False
-        cmd = '%s docker inspect -f "{{ .State }}" %s' % (self.docker_host, self.name)
+        cmd = '%s docker inspect -f "{{ .State.Running }}" %s' % (self.docker_host, self.name)
         _LOGGER.debug("Launching command: %s", cmd)
         try:
             p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
             (node_info, _) = p.communicate()
             if p.returncode == 0:
                 node_info = node_info.strip()
-                self.running = STATUS[node_info[0]]
+                self.running = STATUS[node_info]
                 res = True
             else:
                 _LOGGER.debug("Container %s doesn't exist anymore.", self.name)
