@@ -40,7 +40,7 @@ class VirtualNode(object):
 
     def __init__(self, name, host=None, ip=None, **kwargs):
         self.name = name
-        self.ip = ip
+        self.ip = ip if ip is not None else ''
         if host:
             self.host = host
         else:
@@ -150,9 +150,9 @@ class DockerNode(VirtualNode):
          
     def get_ip(self):
         '''Get container ip from name'''
-        if self.ip is not None:
+        if self.ip != '':
             return self.ip
-        ip = None
+        ip = ''
         inspect_cmd = '%s docker inspect -f "{{ .NetworkSettings.IPAddress }}" %s' % (
             self.docker_host, self.name)
         try:
@@ -347,9 +347,9 @@ class LibvirtNode(VirtualNode):
 
     def get_ip(self):
         '''Get vm ip from domain name'''
-        if self.ip is not None:
+        if self.ip != '':
             return self.ip
-        ip = None
+        ip = ''
         if not self.is_alive():
             return None
         cvirt = libvirt.open(self.uri)
