@@ -261,7 +261,11 @@ class LibvirtNode(VirtualNode):
     def start(self):
         """Start libvirt virtual machine"""
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
-        cvirt = libvirt.open(self.uri)
+        try:
+            cvirt = libvirt.open(self.uri)
+        except libvirt.libvirtError:
+            _LOGGER.debug("Couldn't connect to host %s. Skipping.", self.host)
+            sys.exit(1)
         mngtvirt = libvirt.open()
         # Check if base domain exists, otherwise exit
         base_dom = None
@@ -338,8 +342,8 @@ class LibvirtNode(VirtualNode):
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
         res = False
-        cvirt = libvirt.open(self.uri)
         try:
+            cvirt = libvirt.open(self.uri)
             domain = cvirt.lookupByName(self.name)
             res = True
             self.running = domain.state()[0] == libvirt.VIR_DOMAIN_RUNNING
@@ -636,7 +640,12 @@ class ClustdockServer(object):
             if p.exitcode == 0:
                 spawned_nodes.append(node_name)
             else:
+                del cluster.nodes[node_name]
                 err.append("Error when spawning %s" % node_name)
+        
+        if len(cluster.nodes) == 0:
+            del self.clusters[cluster.name]
+
         _LOGGER.debug(spawned_nodes) 
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         err.append(nodelist)
@@ -706,7 +715,7 @@ def main(args):
     clserver = ClustdockServer(args.port, 
                                args.cfg['dns_server'],
                                args.cfg['domain'],
-                               args.cfg['clusters']
+                               args.cfg['profiles']
                                )
     # Empty socker buffers
     while clserver.socket.poll(10) != 0:
