@@ -13,12 +13,9 @@ import os
 import logging
 import re
 import zmq
-import socket
 from ClusterShell.NodeSet import NodeSet
 from ClusterShell.RangeSet import RangeSet
 import msgpack
-import dns.zone
-import dns.query
 import time
 import libvirt
 from ipaddr import IPv4Network, AddressValueError
@@ -30,10 +27,10 @@ import cPickle
 import signal
 import signalfd
 
-CONFIG_FILE = os.path.join(os.path.dirname(sys.argv[0]), "clustdockd.conf")
+CONFIG_FILE = "/etc/clustdockd.conf"
 DOCKER_NODE = "docker"
 LIBVIRT_NODE = "libvirt"
-DUMP_FILE = "/var/run/clustdock-list.bin"
+DUMP_FILE = "/var/run/clustdockd.bin"
 STATUS = {'true': True, 'false': False}
 
 
@@ -95,14 +92,11 @@ class DockerNode(VirtualNode):
     def start(self):
         '''Start a docker container'''
         #--cpuset-cpus {cpu_bind} \
-        #--dns %s --dns-search %s \
         spawn_cmd = "%s docker run -d -t --name %s -h %s \
                 --cap-add net_raw --cap-add net_admin \
                 %s %s &> /dev/null" % (self.docker_host,
                                        self.name,
                                        self.name,
-                                       #dns_config['server'], 
-                                       #dns_config['domain'],
                                        self.docker_opts,
                                        self.baseimg)
         spawned = 1
@@ -483,12 +477,9 @@ class VirtualCluster(object):
      
 class ClustdockServer(object):
 
-    def __init__(self, port, dns_server, domain, profiles):
+    def __init__(self, port, profiles):
         '''docstring'''
         self.port = port
-        self.dns_server = dns_server
-        self.dns_server_ip = socket.gethostbyname(self.dns_server)
-        self.domain = domain
         self.profiles = profiles
         self.ctx = zmq.Context()
         self.socket = self.ctx.socket(zmq.ROUTER)
@@ -503,7 +494,7 @@ class ClustdockServer(object):
                 self.clusters = cPickle.load(dump_file)
         except IOError:
             _LOGGER.debug("File %s doesn't exists. Skipping load from file.", DUMP_FILE)
-        except cpickle.PickleError:
+        except cPickle.PickleError:
             _LOGGER.debug("Error when loading clusters from file")
     
     def save_to_file(self):
@@ -513,43 +504,11 @@ class ClustdockServer(object):
                 cPickle.dump(self.clusters, dump_file)
         except IOError:
             _LOGGER.debug("Cannot write to file %s. Skipping", DUMP_FILE)
-        except cpickle.PickleError:
+        except cPickle.PickleError:
             _LOGGER.debug("Error when saving clusters to file")
     
     def inventory(self):
         _LOGGER.info("Inventory of clusters")
-        try:
-            zone = dns.zone.from_xfr(dns.query.xfr(self.dns_server, self.domain))
-            for rdata in zone.iterate_rdatas('A'):
-                node = VirtualNode(str(rdata[0]), self.domain, str(rdata[2]))
-                _LOGGER.debug("name: %s, IP: %s", node.name, node.ip)
-                rc = sp.call("ping -c1 -w2 %s &> /dev/null" % node.ip, shell=True)
-                if rc == 0:
-                    _LOGGER.debug("%s is responding", node)
-                    cluster = self.clusters.get(node.clustername, None)
-                    if cluster is None:
-                        # Cluster doesn't exists
-                        _LOGGER.info("Creating cluster %s", node.clustername)
-                        cluster = VirtualCluster(node.clustername)
-                        self.clusters[cluster.name] = cluster
-                    
-                    if cluster.nodes.has_key(node.name):
-                        _LOGGER.info("%s already in the cluster", node)
-                    else:
-                        cluster.nodes[node.name] = node
-                        _LOGGER.info("Adding %s to the cluster, nb_nodes = %d", 
-                                  node, len(cluster.nodes))
-                        if node.idx == 0:
-                            cluster.has_mngt = True 
-                            _LOGGER.info("Mngt node of %s cluster is %s", node.clustername, node) 
-                else:
-                    _LOGGER.debug("%s is not responding, ignoring it", node)
-                    del cluster.nodes[node.name]
-        except dns.exception.FormError:
-            _LOGGER.warning("DNS zone transfer not configured. Skipping.")
-        except socket.error:
-            _LOGGER.warning("DNS zone transfer not configured. Connection refused. Skipping.")
-        
         for cluster in self.clusters.values():
             for node in cluster.nodes.values():
                 if not node.is_alive():
@@ -712,11 +671,7 @@ class ClustdockServer(object):
 def main(args):
     '''Main function'''
     _LOGGER.info("Starting server")
-    clserver = ClustdockServer(args.port, 
-                               args.cfg['dns_server'],
-                               args.cfg['domain'],
-                               args.cfg['profiles']
-                               )
+    clserver = ClustdockServer(args.port, args.cfg['profiles'])
     # Empty socker buffers
     while clserver.socket.poll(10) != 0:
         clientid, empty, message = clserver.socket.recv_multipart()
@@ -796,11 +751,6 @@ def format_list(liste, **kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Stuff to deal with docker cluster')
-    parser.add_argument('-d', '--dns-server', help="Name of the dns server", 
-                        default="mngt")
-    parser.add_argument('-n', '--domain', help="Domain name to use",
-                        default="bxi.hl")
-    parser.add_argument('-D', '--detach', help="Run daemon in background", action="store_true")
     parser.add_argument('-p', '--port', help="Port to bind the deamon to",
                         default=5050)
     # Configuration file
