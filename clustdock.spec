@@ -78,6 +78,7 @@ Requires: libvirt-python
 Requires: python-libguestfs
 Requires: python-ipaddr
 Requires: python-lxml
+Requires: python-signalfd
 #
 #Requires: bxibase >= 3.2.0
 #BuildRequires: flex == 2.5.37
