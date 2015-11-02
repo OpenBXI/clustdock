@@ -149,12 +149,14 @@ class DockerNode(VirtualNode):
         if self.ip != '':
             return self.ip
         ip = ''
-        inspect_cmd = '%s docker inspect -f "{{ .NetworkSettings.IPAddress }}" %s' % (
+        cmd = "%s docker exec %s ip a show scope global | grep 'inet '" % (
             self.docker_host, self.name)
         try:
-            p = sp.Popen(inspect_cmd, stdout=sp.PIPE, shell=True)
+            p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
             (node_info, _) = p.communicate()
-            ip = node_info.strip()
+            node_info = node_info.strip()
+            if node_info != '':
+                ip = node_info.split()[1].split('/')[0]
             self.ip = ip
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)
