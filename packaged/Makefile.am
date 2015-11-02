@@ -3,11 +3,12 @@ SUBDIRS=doc
 if HAVE_SYSTEMD
 dist_systemdsys_DATA=\
 					 conf/clustdockd.service
+endif
+
 sysconfigdir=$(sysconfdir)
 dist_sysconfig_DATA=\
 					conf/clustdockd.conf\
 					conf/clustdock.conf
-endif
 
 nobase_dist_doc_DATA=\
 					 conf/clustdockd.conf\

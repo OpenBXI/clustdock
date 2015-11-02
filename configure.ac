@@ -64,7 +64,6 @@ INIT_BXIPYTHON
 #PC_PYTHON_CHECK_MODULE([cffi], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([zmq], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([msgpack], [], [AC_MSG_ERROR(Module not found)])
-PC_PYTHON_CHECK_MODULE([dns], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([ClusterShell], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([libvirt], [], [AC_MSG_WARN(Module not found, this is required for running)])
 PC_PYTHON_CHECK_MODULE([guestfs], [], [AC_MSG_WARN(Module not found, this is required for running)])
@@ -74,7 +73,7 @@ PC_PYTHON_CHECK_MODULE([signalfd], [], [AC_MSG_WARN(Module not found, this is re
 ###################################### End PYTHON PART ############################################################
 
 
-SUBPACKAGES="doc"
+SUBPACKAGES="doc server"
 AC_SUBST([SUBPACKAGES])
 AC_BXIEXTRA_DIST=""
 AC_SUBST([AC_BXIEXTRA_DIST])
