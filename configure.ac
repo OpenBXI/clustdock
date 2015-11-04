@@ -78,7 +78,7 @@ AC_SUBST([SUBPACKAGES])
 AC_BXIEXTRA_DIST=""
 AC_SUBST([AC_BXIEXTRA_DIST])
 #TODO add the pc.in file
-AC_CONFIG_FILES([Makefile packaged/Makefile packaged/doc/Makefile tests/Makefile])
+AC_CONFIG_FILES([Makefile packaged/Makefile packaged/doc/Makefile tests/Makefile packaged/lib/Makefile])
 AC_OUTPUT
 
 DISPLAY_CONF(BXIMODULE)

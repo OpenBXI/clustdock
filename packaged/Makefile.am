@@ -1,4 +1,4 @@
-SUBDIRS=doc
+SUBDIRS=doc lib
 
 if HAVE_SYSTEMD
 dist_systemdsys_DATA=\

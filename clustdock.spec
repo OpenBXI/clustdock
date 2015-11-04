@@ -38,7 +38,7 @@
 %define target_conf_dir /etc
 %define target_prefix  /usr/
 %define target_bin_dir  %{target_prefix}bin
-%define target_lib_dir  %{python2_sitelib}
+%define target_python_lib_dir %{python2_sitelib}/%{name}
 %define target_perllib_dir  %perl_vendorlib
 %define target_man_dir  %{_mandir}
 %define target_data_dir  %{target_prefix}/share/
@@ -148,7 +148,9 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{target_bin_dir}/clustdock
-#%{target_python_lib_dir}/*
+%{target_python_lib_dir}/client.py
+%{target_python_lib_dir}/client.pyc
+%{target_python_lib_dir}/client.pyo
 
 %config(noreplace) %{target_conf_dir}/clustdock.conf
 
@@ -159,6 +161,22 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %files server
 %{target_bin_dir}/clustdockd
 %{target_systemd_dir}/clustdockd.service
+%{target_python_lib_dir}/__init__.py
+%{target_python_lib_dir}/__init__.pyc
+%{target_python_lib_dir}/__init__.pyo
+%{target_python_lib_dir}/docker_node.py
+%{target_python_lib_dir}/docker_node.pyc
+%{target_python_lib_dir}/docker_node.pyo
+%{target_python_lib_dir}/libvirt_node.py
+%{target_python_lib_dir}/libvirt_node.pyc
+%{target_python_lib_dir}/libvirt_node.pyo
+%{target_python_lib_dir}/server.py
+%{target_python_lib_dir}/server.pyc
+%{target_python_lib_dir}/server.pyo
+%{target_python_lib_dir}/virtual_cluster.py
+%{target_python_lib_dir}/virtual_cluster.pyc
+%{target_python_lib_dir}/virtual_cluster.pyo
+
 %config(noreplace) %{target_conf_dir}/clustdockd.conf
 
 %doc

@@ -1,0 +1,81 @@
+# -*- coding: utf-8 -*-
+'''
+@author Antoine Sax <antoine.sax@atos.net>
+@copyright 2015  Bull S.A.S.  -  All rights reserved.\n
+           This is not Free or Open Source software.\n
+           Please contact Bull SAS for details about its license.\n
+           Bull - Rue Jean Jaurès - B.P. 68 - 78340 Les Clayes-sous-Bois
+@file clustdock/libvirt_node.py
+@namespace clustdock.libvirt_node LibvirtNode definition
+'''
+import logging
+from ClusterShell.NodeSet import NodeSet
+from ClusterShell.RangeSet import RangeSet
+
+import clustdock
+import clustdock.docker_node as dock
+import clustdock.libvirt_node as lbv
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class VirtualCluster(object):
+    '''Represents a docker cluster'''
+
+    def __init__(self, name, cfg):
+        self.name = name
+        self.nodes = dict()
+        self.cfg = self._extract_conf(cfg)
+
+    @property
+    def nb_nodes(self):
+        return len(self.nodes)
+
+    @property
+    def nodeset(self):
+        return str(NodeSet.fromlist(self.nodes.keys()))
+  
+    def _extract_conf(self, cfg):
+        """Extract cluster nodes configuration"""
+        conf = {
+            "default": {
+            }
+        }
+        for key, val in cfg.iteritems():
+            if isinstance(val, dict):
+                rset = RangeSet(key)
+                for idx in rset:
+                    conf[idx] = val
+            else:
+                conf['default'][key] = val
+        try:
+            conf = clustdock.format_dict(conf, **self.__dict__)
+        except KeyError as ke:
+            _LOGGER.error("Key '%s' not found.", ke.message)
+        return conf
+    
+    def add_node(self, idx, host):
+        """Create new node on host and add it to the cluster"""
+        self.cfg['default']['host'] = host 
+        conf = self.cfg['default'].copy()
+        conf.update(self.cfg.get(idx, {}))
+        _LOGGER.debug(conf)
+        if conf['vtype'] == clustdock.DOCKER_NODE:
+            node = dock.DockerNode("%s%d" % (self.name, idx), **conf)
+        elif conf['vtype'] == clustdock.LIBVIRT_NODE:
+            node = lbv.LibvirtNode("%s%d" % (self.name, idx), **conf)
+        self.nodes[node.name] = node
+        return node
+
+    def byhosts(self):
+        """Return string describing on which hosts are virtual nodes"""
+        byhost = {}
+        for node in self.nodes.values():
+            if node.host not in byhost:
+                byhost[node.host] = NodeSet(node.name)
+            else:
+                byhost[node.host].add(node.name)
+        return " - ".join([k + ':' + str(byhost[k]) for k in byhost])
+
+
+
