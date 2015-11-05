@@ -61,7 +61,7 @@ class ClustdockServer(object):
                 if not node.is_alive():
                     _LOGGER.info("Deleting node %s", node.name)
                     del cluster.nodes[node.name]
-            _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name, 
+            _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name,
                                                               cluster.nb_nodes,
                                                               cluster.nodeset)
             if len(cluster.nodes) == 0:
@@ -91,7 +91,7 @@ class ClustdockServer(object):
         '''List all clusters'''
         mylist = []
         for cluster in self.clusters.values():
-            mylist.append((cluster.name, len(cluster.nodes), 
+            mylist.append((cluster.name, len(cluster.nodes),
                            cluster.nodeset, cluster.byhosts()))
 
         self.socket.send_multipart([clientid, '', msgpack.packb(mylist)])
@@ -153,7 +153,7 @@ class ClustdockServer(object):
         if len(cluster.nodes) == 0:
             del self.clusters[cluster.name]
 
-        _LOGGER.debug(spawned_nodes) 
+        _LOGGER.debug(spawned_nodes)
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         err.append(nodelist)
         self.socket.send_multipart([clientid, '', msgpack.packb(err)])
