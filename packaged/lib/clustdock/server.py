@@ -14,7 +14,7 @@ import cPickle
 import msgpack
 import multiprocessing as mp
 from ClusterShell.NodeSet import NodeSet
-
+from ClusterShell.NodeSet import NodeSetParseError
 import clustdock.virtual_cluster as vc
 import clustdock
 
@@ -178,39 +178,44 @@ class ClustdockServer(object):
     def del_node(self, name, clientid):
         '''Delete node'''
         res = ""
-        nodeset = NodeSet(name)
-        processes = []
-        for nodename in nodeset:
-            clustername, _ = clustdock.VirtualNode.split_name(nodename)
-            cluster = self.clusters.get(clustername, None)
-            if cluster:
-                node = cluster.nodes.get(nodename, None)
-                if node:
-                    _LOGGER.debug("deleting node %s", node.name)
-                    p = mp.Process(target=node.__class__.stop, args=(node,))
-                    p.start()
-                    processes.append((cluster, node.name, p))
+        try:
+            nodeset = NodeSet(name)
+        except NodeSetParseError:
+            res = "Error: '%s' is not a valid nodeset. Skipping" % name
+            _LOGGER.error(res)
+        else:
+            processes = []
+            for nodename in nodeset:
+                clustername, _ = clustdock.VirtualNode.split_name(nodename)
+                cluster = self.clusters.get(clustername, None)
+                if cluster:
+                    node = cluster.nodes.get(nodename, None)
+                    if node:
+                        _LOGGER.debug("deleting node %s", node.name)
+                        p = mp.Process(target=node.__class__.stop, args=(node,))
+                        p.start()
+                        processes.append((cluster, node.name, p))
+                    else:
+                        _LOGGER.debug("Node %s doesn't exists. Perhaps something went wrong",
+                                  nodename)
+                        res += "Error: Node %s doesn't exist\n" % nodename
                 else:
-                    _LOGGER.debug("Node %s doesn't exists. Perhaps something went wrong",
-                              nodename)
-                    res += "Error: Node %s doesn't exist\n" % nodename
-            else:
-                _LOGGER.debug("Cluster %s doesn't exists. Perhaps something went wrong",
-                              clustername)
-                res += "Error: Cluster %s doesn't exist\n" % clustername
-        stopped_nodes = []
-        for cluster, node_name, p in processes:
-            p.join()
-            if p.exitcode == 0:
-                stopped_nodes.append(node_name)
-                del cluster.nodes[node_name]
+                    _LOGGER.debug("Cluster %s doesn't exists. Perhaps something went wrong",
+                                  clustername)
+                    res += "Error: Cluster %s doesn't exist\n" % clustername
+            stopped_nodes = []
+            for cluster, node_name, p in processes:
+                p.join()
+                if p.exitcode == 0:
+                    stopped_nodes.append(node_name)
+                    del cluster.nodes[node_name]
 
-        for cluster in set([item[0] for item in processes]):
-            if len(cluster.nodes) == 0:
-                _LOGGER.debug("Deleting cluster %s", cluster.name)
-                del self.clusters[cluster.name]
+            for cluster in set([item[0] for item in processes]):
+                if len(cluster.nodes) == 0:
+                    _LOGGER.debug("Deleting cluster %s", cluster.name)
+                    del self.clusters[cluster.name]
 
-        nodelist = str(NodeSet.fromlist(stopped_nodes))
-        _LOGGER.debug("Stopped nodes: %s", nodelist)
-        res += "Stopped nodes: %s" % nodelist if nodelist != "" else ""
+            nodelist = str(NodeSet.fromlist(stopped_nodes))
+            _LOGGER.debug("Stopped nodes: %s", nodelist)
+            res += "Stopped nodes: %s" % nodelist if nodelist != "" else ""
         self.socket.send_multipart([clientid, '', msgpack.packb(res)])
