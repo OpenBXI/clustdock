@@ -149,6 +149,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{target_bin_dir}/clustdock
 %{target_python_lib_dir}/%{name}/client*
+%{target_python_lib_dir}/%{name}/__init__.*
 
 %config(noreplace) %{target_conf_dir}/clustdock.conf
 
@@ -159,21 +160,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %files server
 %{target_bin_dir}/clustdockd
 %{target_systemd_dir}/clustdockd.service
-%{target_python_lib_dir}/%{name}/[!c]*
-# %{target_python_lib_dir}/%{name}/__init__.pyc
-# %{target_python_lib_dir}/%{name}/__init__.pyo
-# %{target_python_lib_dir}/%{name}/docker_node.py
-# %{target_python_lib_dir}/%{name}/docker_node.pyc
-# %{target_python_lib_dir}/%{name}/docker_node.pyo
-# %{target_python_lib_dir}/%{name}/libvirt_node.py
-# %{target_python_lib_dir}/%{name}/libvirt_node.pyc
-# %{target_python_lib_dir}/%{name}/libvirt_node.pyo
-# %{target_python_lib_dir}/%{name}/server.py
-# %{target_python_lib_dir}/%{name}/server.pyc
-# %{target_python_lib_dir}/%{name}/server.pyo
-# %{target_python_lib_dir}/%{name}/virtual_cluster.py
-# %{target_python_lib_dir}/%{name}/virtual_cluster.pyc
-# %{target_python_lib_dir}/%{name}/virtual_cluster.pyo
+%{target_python_lib_dir}/%{name}/[!c_]*
 
 %config(noreplace) %{target_conf_dir}/clustdockd.conf
 
