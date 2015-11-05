@@ -33,7 +33,7 @@ class VirtualNode(object):
     @classmethod
     def split_name(cls, nodename):
         try:
-            res = re.search('([a-z-_]+)(\d+)', nodename).groups()
+            res = re.search(r'([a-z-_]+)(\d+)', nodename).groups()
             clustername = res[0]
             idx = int(res[1])
             return (clustername, idx)

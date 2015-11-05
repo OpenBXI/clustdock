@@ -50,8 +50,8 @@ class VirtualCluster(object):
                 conf['default'][key] = val
         try:
             conf = clustdock.format_dict(conf, **self.__dict__)
-        except KeyError as ke:
-            _LOGGER.error("Key '%s' not found.", ke.message)
+        except KeyError:
+            _LOGGER.exception("Key not found:")
         return conf
 
     def add_node(self, idx, host):

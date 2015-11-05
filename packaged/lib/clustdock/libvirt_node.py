@@ -194,7 +194,8 @@ class LibvirtNode(clustdock.VirtualNode):
         else:
             raise Exception("Cannot compare two object with different types")
 
-    def _add_iface(self, tree, iface):
+    @staticmethod
+    def _add_iface(tree, iface):
         """Add network interface to the VM"""
         desc = "<interface type='bridge'>\n" + \
                "  <source bridge='%s'/>\n" % iface + \
@@ -211,7 +212,7 @@ class LibvirtNode(clustdock.VirtualNode):
         new_mem = etree.fromstring(desc)
         dom = tree.xpath("/domain")[0]
         cur_mem = tree.xpath("/domain/currentMemory")
-        if etree.iselement(cur_mem):
+        if cur_mem and etree.iselement(cur_mem[0]):
             dom.remove(cur_mem[0])
         memory = tree.xpath("/domain/memory")[0]
         dom.replace(memory, new_mem)
