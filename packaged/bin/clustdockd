@@ -21,13 +21,14 @@ import clustdock.server
 
 CONFIG_FILE = "/etc/clustdockd.conf"
 
+
 def main(args):
     '''Main function'''
     _LOGGER.info("Starting server")
     clserver = clustdock.server.ClustdockServer(args.port, args.cfg['profiles'])
     # Empty socker buffers
     while clserver.socket.poll(10) != 0:
-        clientid, empty, message = clserver.socket.recv_multipart()
+        clientid, _, message = clserver.socket.recv_multipart()
         print("Recieved control command: %s" % message)
         clserver.socket.send("FAIL")
 
@@ -35,7 +36,7 @@ def main(args):
     clserver.load_from_file()
     clserver.inventory()
     last_exec = time.time()
-    
+
     # Entering main loop
     _LOGGER.debug("Entering main loop")
     fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
@@ -48,19 +49,19 @@ def main(args):
             try:
                 items = dict(poller.poll(1000))
                 if clserver.socket in items:
-                    clientid, empty, cmd = clserver.socket.recv_multipart()
+                    clientid, _, cmd = clserver.socket.recv_multipart()
                     _LOGGER.debug("Something received from client: '%s'", clientid)
                     _LOGGER.debug("cmd: '%s'", cmd)
                     clserver.process_cmd(cmd, clientid)
-                
-                if last_exec + 60 <= time.time(): 
+
+                if last_exec + 60 <= time.time():
                     clserver.inventory()
                     last_exec = time.time()
 
                 if fo.fileno() in items:
-                    #bbytes = os.read(fd, 128)
-                    #_LOGGER.debug("bytes: %s", bbytes)
-                    #info = signalfd.read_siginfo(fd)
+                    # bbytes = os.read(fd, 128)
+                    # _LOGGER.debug("bytes: %s", bbytes)
+                    # info = signalfd.read_siginfo(fd)
                     _LOGGER.debug("Signal received")
                     clserver.save_to_file()
                     break
@@ -68,7 +69,7 @@ def main(args):
             except KeyboardInterrupt:
                 clserver.save_to_file()
                 break
-    
+
     clserver.socket.close()
     clserver.ctx.destroy()
     _LOGGER.info("Exiting server")
@@ -79,7 +80,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--port', help="Port to bind the deamon to",
                         default=5050)
     # Configuration file
-    parser.add_argument("-c", "--cfgfile", 
+    parser.add_argument("-c", "--cfgfile",
                         default=CONFIG_FILE,
                         help="Configuration file. default: %(default)s")
     # Logging level
@@ -96,4 +97,3 @@ if __name__ == "__main__":
         format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
     _LOGGER = logging.getLogger()
     sys.exit(main(_args))
-

@@ -18,12 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 
 STATUS = {'true': True, 'false': False}
 
+
 class DockerNode(clustdock.VirtualNode):
-    
+
     def __init__(self, name, img, **kwargs):
         """Instanciate a docker container"""
         super(DockerNode, self).__init__(name, **kwargs)
         self.baseimg = img
+        self.running = False
         self.docker_host = "NO_PROXY=%s DOCKER_HOST=tcp://%s:4243" % (
             self.host, self.host) if self.host != 'localhost' else ''
         self.docker_opts = kwargs.get('docker_opts', '')
@@ -31,10 +33,10 @@ class DockerNode(clustdock.VirtualNode):
         if self.supl_iface and len(self.supl_iface) == 3:
             self.supl_iface = [self.supl_iface]
         _LOGGER.debug(self.supl_iface)
-    
+
     def start(self):
         '''Start a docker container'''
-        #--cpuset-cpus {cpu_bind} \
+        # --cpuset-cpus {cpu_bind} \
         spawn_cmd = "%s docker run -d -t --name %s -h %s \
                 --cap-add net_raw --cap-add net_admin \
                 %s %s &> /dev/null" % (self.docker_host,
@@ -57,7 +59,7 @@ class DockerNode(clustdock.VirtualNode):
             except Exception:
                 self.stop()
         sys.exit(spawned)
-    
+
     def stop(self):
         """Stop docker container"""
         rmcmd = "%s docker rm -f -v %s" % (self.docker_host, self.name)
@@ -65,14 +67,15 @@ class DockerNode(clustdock.VirtualNode):
             _LOGGER.debug("Trying to delete %s", self.name)
             sp.check_call(rmcmd, shell=True)
         except sp.CalledProcessError:
-                _LOGGER.error("Something went wrong when stopping %s", self.name)
-                sys.exit(1)
+            _LOGGER.error("Something went wrong when stopping %s", self.name)
+            sys.exit(1)
         sys.exit(0)
-    
+
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
         res = False
-        cmd = '%s docker inspect -f "{{ .State.Running }}" %s' % (self.docker_host, self.name)
+        cmd = '%s docker inspect -f "{{ .State.Running }}" %s' % (
+              self.docker_host, self.name)
         _LOGGER.debug("Launching command: %s", cmd)
         try:
             p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
@@ -86,7 +89,7 @@ class DockerNode(clustdock.VirtualNode):
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)
         return res
-    
+
     def get_ip(self):
         '''Get container ip from name'''
         if self.ip != '':
@@ -104,7 +107,7 @@ class DockerNode(clustdock.VirtualNode):
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)
         return ip
-    
+
     def _add_iface(self, iface):
         """Add another interface to the docker container"""
         prefix = "ssh %s" % self.host if self.host != 'localhost' else ''
@@ -112,16 +115,16 @@ class DockerNode(clustdock.VirtualNode):
         try:
             # ip addr show docker0 -> check the bridge presence
             cmd = "%s ip addr show %s | grep 'inet ' | awk '{print $2}'" % (
-                    prefix, 
+                    prefix,
                     br)
             p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
             (br_ip, _) = p.communicate()
-        except sp.CalledProcessError as ex:
+        except sp.CalledProcessError:
             raise Exception("Something went wrong when trying to find bridge %s", br)
-            
+
         br_ip = br_ip.strip()
         try:
-            br_net = IPv4Network(br_ip)
+            IPv4Network(br_ip)
         except AddressValueError:
             _LOGGER.error("Bridge lookup failed: %s", br_ip)
             raise Exception("Bridge %s not found", br)
@@ -134,7 +137,7 @@ class DockerNode(clustdock.VirtualNode):
                   prefix, br, eth, self.name
                   )
             cmd += " --ipaddress=%s" % ip if ip != "dhcp" else ""
-            
+
             _LOGGER.debug("Trying to execute: %s", cmd)
             try:
                 sp.check_call(cmd, shell=True)
@@ -142,7 +145,7 @@ class DockerNode(clustdock.VirtualNode):
                 raise Exception("Adding interface on bridge %s failed", br)
         else:
             # it's a system bridge
-            
+
             # Get the pid of the container
             cmd = "%s docker inspect -f '{{.State.Pid}}' %s" % (
                     self.docker_host,

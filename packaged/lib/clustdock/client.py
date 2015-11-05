@@ -15,6 +15,7 @@ import msgpack
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class ClustdockClient(object):
     '''Class representing the client part of the docker/libvirt architecture'''
 
@@ -34,16 +35,16 @@ class ClustdockClient(object):
             self.socket.setsockopt(zmq.RCVTIMEO, 5000)
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
-            #print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
+            # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
             print("%-7s %-20s %-40s" % ("#Nodes", "Nodeset", "Hosts"))
             print("-" * 77)
             for item in liste:
-                #print("{0:<10s} {1:<7d} {2:<20s} {3:<40s}".format(*item))
+                # print("{0:<10s} {1:<7d} {2:<20s} {3:<40s}".format(*item))
                 print("{1:<7d} {2:<20s} {3:<40s}".format(*item))
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
             return 2
-    
+
     def spawn(self, profil, clustername, nb_nodes, host, **kwargs):
         """Ask server to spawn a cluster"""
         rc = 0
@@ -74,7 +75,7 @@ class ClustdockClient(object):
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
             return 2
-    
+
     def getip(self, nodeset, **kwargs):
         try:
             self.socket.send("get_ip %s" % nodeset)

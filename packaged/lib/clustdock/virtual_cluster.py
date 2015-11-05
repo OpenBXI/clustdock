@@ -34,7 +34,7 @@ class VirtualCluster(object):
     @property
     def nodeset(self):
         return str(NodeSet.fromlist(self.nodes.keys()))
-  
+
     def _extract_conf(self, cfg):
         """Extract cluster nodes configuration"""
         conf = {
@@ -53,10 +53,10 @@ class VirtualCluster(object):
         except KeyError as ke:
             _LOGGER.error("Key '%s' not found.", ke.message)
         return conf
-    
+
     def add_node(self, idx, host):
         """Create new node on host and add it to the cluster"""
-        self.cfg['default']['host'] = host 
+        self.cfg['default']['host'] = host
         conf = self.cfg['default'].copy()
         conf.update(self.cfg.get(idx, {}))
         _LOGGER.debug(conf)
@@ -76,6 +76,3 @@ class VirtualCluster(object):
             else:
                 byhost[node.host].add(node.name)
         return " - ".join([k + ':' + str(byhost[k]) for k in byhost])
-
-
-

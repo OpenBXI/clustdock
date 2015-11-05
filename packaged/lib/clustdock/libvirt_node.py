@@ -12,7 +12,6 @@ import logging
 import sys
 import os
 import subprocess as sp
-from ipaddr import IPv4Network, AddressValueError
 from lxml import etree
 import time
 import libvirt
@@ -20,12 +19,13 @@ import clustdock
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class LibvirtNode(clustdock.VirtualNode):
-    
+
     def __init__(self, name, img, img_dir, **kwargs):
         """Instanciate a libvirt node"""
         super(LibvirtNode, self).__init__(name, **kwargs)
-        self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None 
+        self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None
         self.baseimg = img
         self.img_dir = img_dir
         self.supl_iface = kwargs.get('add_iface', None)
@@ -33,18 +33,18 @@ class LibvirtNode(clustdock.VirtualNode):
         self.cpu = kwargs.get('cpu', None)
         if self.supl_iface and not isinstance(self.supl_iface, list):
             self.supl_iface = [self.supl_iface]
-        
+
     @property
     def img_path(self):
         """Return path of the node image"""
         return os.path.join(self.img_dir, "%s.qcow2" % self.name)
-    
+
     def get_baseimg_path(self, xmldesc):
         """Get base image path from xml description"""
         tree = etree.fromstring(xmldesc)
         path = tree.xpath("//devices/disk/source/@file")[0]
         self.baseimg_path = path
-    
+
     def start(self):
         """Start libvirt virtual machine"""
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
@@ -65,12 +65,12 @@ class LibvirtNode(clustdock.VirtualNode):
         if self.name in cvirt.listDefinedDomains():
             _LOGGER.error("Image %s already exists. Skipping", self.name)
             sys.exit(1)
-        
+
         # Get xml description of the base image
         bxml_desc = base_dom.XMLDesc()
         # Change xml content
         new_xml = self.build_xml(bxml_desc)
-        
+
         # Create new disk file for the node
         # Just save diffs from based image
         cmd = "qemu-img create -f qcow2 -b %s %s" % (self.baseimg_path, self.img_path)
@@ -83,7 +83,7 @@ class LibvirtNode(clustdock.VirtualNode):
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when spawning %s", self.name)
             sys.exit(1)
-        
+
         # Define the new node
         try:
             try:
@@ -100,7 +100,7 @@ class LibvirtNode(clustdock.VirtualNode):
             sys.exit(1)
         # Node spawned, return True
         sys.exit(0)
-    
+
     def stop(self):
         """Stop libvirt node"""
         cvirt = libvirt.open(self.uri)
@@ -110,13 +110,13 @@ class LibvirtNode(clustdock.VirtualNode):
             _LOGGER.debug('Destroying domain %s', self.name)
             dom.destroy()
         _LOGGER.debug('Undefine domain %s', self.name)
-        dom.undefine() # --remove-all-storage
+        dom.undefine()  # --remove-all-storage
         try:
             cmd = "rm -f %s" % self.img_path
             _LOGGER.debug("Launching %s", cmd)
             sp.check_call(cmd, shell=True)
         except sp.CalledProcessError:
-                _LOGGER.error("Something went wrong when removing disk for %s", self.name)
+            _LOGGER.error("Something went wrong when removing disk for %s", self.name)
 
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
@@ -129,7 +129,7 @@ class LibvirtNode(clustdock.VirtualNode):
         except libvirt.libvirtError:
             pass
         return res
-    
+
     def get_ip(self):
         '''Get vm ip from domain name'''
         if self.ip != '':
@@ -160,7 +160,7 @@ class LibvirtNode(clustdock.VirtualNode):
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)
         self.ip = ip
         return ip
-    
+
     def build_xml(self, xml_info):
         '''Generate new XML description for the node from the base description'''
         tree = etree.fromstring(xml_info)
@@ -184,16 +184,16 @@ class LibvirtNode(clustdock.VirtualNode):
         if self.cpu:
             self._set_cpu(tree)
         return etree.tostring(tree)
-    
+
     def __str__(self):
         return self.name
-    
+
     def __cmp__(self, node):
         if isinstance(node, clustdock.VirtualNode):
             return cmp(self.name, node.name)
         else:
             raise Exception("Cannot compare two object with different types")
-    
+
     def _add_iface(self, tree, iface):
         """Add network interface to the VM"""
         desc = "<interface type='bridge'>\n" + \
@@ -216,10 +216,9 @@ class LibvirtNode(clustdock.VirtualNode):
         memory = tree.xpath("/domain/memory")[0]
         dom.replace(memory, new_mem)
         return tree
-    
+
     def _set_cpu(self, tree):
         """Set number of cpus for the node"""
-        dom = tree.xpath("/domain")[0]
         cpu = tree.xpath("/domain/vcpu")[0]
         cpu.text = str(self.cpu)
         return tree

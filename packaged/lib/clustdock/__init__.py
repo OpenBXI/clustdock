@@ -16,6 +16,7 @@ LIBVIRT_NODE = "libvirt"
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class VirtualNode(object):
     '''Represents a virtual node'''
 
@@ -28,7 +29,7 @@ class VirtualNode(object):
             self.host = 'localhost'
         self.clustername, self.idx = VirtualNode.split_name(self.name)
         self.unreachable = False
-    
+
     @classmethod
     def split_name(cls, nodename):
         try:
@@ -39,22 +40,22 @@ class VirtualNode(object):
         except AttributeError:
             _LOGGER.error("Error when splitting %s: doesn't match regex", nodename)
             return (nodename, 0)
-   
+
     def start(self):
         """Start virtual node"""
-        raise NotImplementedError("Must be redefine is subclasses") 
-    
+        raise NotImplementedError("Must be redefine is subclasses")
+
     def stop(self):
         """Stop virtual node"""
-        raise NotImplementedError("Must be redefine is subclasses") 
-    
+        raise NotImplementedError("Must be redefine is subclasses")
+
     def get_ip(self):
         """Get ip of the node"""
-        raise NotImplementedError("Must be redefine is subclasses") 
-    
+        raise NotImplementedError("Must be redefine is subclasses")
+
     def is_alive(self):
         """Return True if node is still defined, else False"""
-        raise NotImplementedError("Must be redefine is subclasses") 
+        raise NotImplementedError("Must be redefine is subclasses")
 
 
 def format_dict(dico, **kwargs):

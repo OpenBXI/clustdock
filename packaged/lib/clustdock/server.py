@@ -33,7 +33,7 @@ class ClustdockServer(object):
         _LOGGER.debug("trying to bind socket to port %s", port)
         self.socket.bind("tcp://*:%s" % port)
         self.clusters = dict()
-    
+
     def load_from_file(self):
         """Load cluster list from file"""
         try:
@@ -53,7 +53,7 @@ class ClustdockServer(object):
             _LOGGER.debug("Cannot write to file %s. Skipping", DUMP_FILE)
         except cPickle.PickleError:
             _LOGGER.debug("Error when saving clusters to file")
-    
+
     def inventory(self):
         _LOGGER.info("Inventory of clusters")
         for cluster in self.clusters.values():
@@ -91,8 +91,9 @@ class ClustdockServer(object):
         '''List all clusters'''
         mylist = []
         for cluster in self.clusters.values():
-            mylist.append((cluster.name, len(cluster.nodes), cluster.nodeset, cluster.byhosts()))
-    
+            mylist.append((cluster.name, len(cluster.nodes), 
+                           cluster.nodeset, cluster.byhosts()))
+
         self.socket.send_multipart([clientid, '', msgpack.packb(mylist)])
 
     def spawn_cluster(self, profil, name, nb_nodes, host, clientid):
@@ -103,11 +104,11 @@ class ClustdockServer(object):
         # 3: select nb_nodes among availables nodes
         # 4: make those nodes not usable for future clients
         # 5: return the list of nodes to the client
-        #_LOGGER.debug("len cluster.nodes: %d", len(VirtualCluster.clusters[name].nodes))
+        # _LOGGER.debug("len cluster.nodes: %d", len(VirtualCluster.clusters[name].nodes))
         err = []
-        if self.clusters.has_key(name):
+        if name in self.clusters:
             cluster = self.clusters[name]
-        elif self.profiles.has_key(profil):
+        elif profil in self.profiles:
             cluster = vc.VirtualCluster(name, self.profiles[profil])
             self.clusters[cluster.name] = cluster
         else:
@@ -133,7 +134,7 @@ class ClustdockServer(object):
             selected_range = range(idx_min - nb_nodes, idx_min)
         else:
             selected_range = range(idx_max + 1, idx_max + 1 + nb_nodes)
-       
+
         processes = []
         for idx in selected_range:
             node = cluster.add_node(idx, host)
@@ -148,7 +149,7 @@ class ClustdockServer(object):
             else:
                 del cluster.nodes[node_name]
                 err.append("Error when spawning %s" % node_name)
-        
+
         if len(cluster.nodes) == 0:
             del self.clusters[cluster.name]
 
@@ -156,7 +157,7 @@ class ClustdockServer(object):
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         err.append(nodelist)
         self.socket.send_multipart([clientid, '', msgpack.packb(err)])
-    
+
     def get_ip(self, name, clientid):
         '''Get the ip of a node if possible'''
         nodeset = NodeSet(name)
@@ -173,7 +174,7 @@ class ClustdockServer(object):
                         ip = tmp
             res.append((ip, nodename))
         self.socket.send_multipart([clientid, '', msgpack.packb(res)])
-    
+
     def del_node(self, name, clientid):
         '''Delete node'''
         res = ""
@@ -190,11 +191,11 @@ class ClustdockServer(object):
                     p.start()
                     processes.append((cluster, node.name, p))
                 else:
-                    _LOGGER.debug("Node %s doesn't exists. Perhaps something went wrong", 
+                    _LOGGER.debug("Node %s doesn't exists. Perhaps something went wrong",
                               nodename)
                     res += "Error: Node %s doesn't exist\n" % nodename
-            else:        
-                _LOGGER.debug("Cluster %s doesn't exists. Perhaps something went wrong", 
+            else:
+                _LOGGER.debug("Cluster %s doesn't exists. Perhaps something went wrong",
                               clustername)
                 res += "Error: Cluster %s doesn't exist\n" % clustername
         stopped_nodes = []
@@ -203,7 +204,7 @@ class ClustdockServer(object):
             if p.exitcode == 0:
                 stopped_nodes.append(node_name)
                 del cluster.nodes[node_name]
-        
+
         for cluster in set([item[0] for item in processes]):
             if len(cluster.nodes) == 0:
                 _LOGGER.debug("Deleting cluster %s", cluster.name)
@@ -211,8 +212,5 @@ class ClustdockServer(object):
 
         nodelist = str(NodeSet.fromlist(stopped_nodes))
         _LOGGER.debug("Stopped nodes: %s", nodelist)
-        res += "Stopped nodes: %s" % nodelist if nodelist != "" else "" 
+        res += "Stopped nodes: %s" % nodelist if nodelist != "" else ""
         self.socket.send_multipart([clientid, '', msgpack.packb(res)])
-
-
-

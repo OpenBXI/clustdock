@@ -18,6 +18,7 @@ import clustdock.client
 CONFIG_FILE = "/etc/clustdock.conf"
 _LOGGER = logging.getLogger(__name__)
 
+
 def main(args):
     '''Main function'''
     _LOGGER.debug("Entering main function")
@@ -48,18 +49,18 @@ if __name__ == "__main__":
                               help="Profil of nodes to spawn")
     parser_spawn.add_argument('clustername',
                               help="Name of the cluster")
-    parser_spawn.add_argument('nb_nodes', 
+    parser_spawn.add_argument('nb_nodes',
                               type=int,
                               nargs='?',
                               default=1,
                               help="Number of nodes. default: %(default)s")
-    
+
     # stop command
     parser_stop = subparsers.add_parser("stop",
                                         help="Stop specified nodes")
     parser_stop.add_argument('nodeset',
                              help="Nodes to stop. (nodeset)")
-    
+
     # get_ip command
     parser_get_ip = subparsers.add_parser("getip",
                                         help="Get @IP of specified nodes")
@@ -67,31 +68,29 @@ if __name__ == "__main__":
                              help="Node names (nodeset)")
     # list command
     parser_list = subparsers.add_parser("list",
-                                        help="List docker clusters already"\
-                                             " spawn on the network")
-   
+                        help="List docker clusters already spawn on the network")
+
     # Configuration file
-    parser.add_argument("-c", "--cfgfile", 
+    parser.add_argument("-c", "--cfgfile",
                         default=CONFIG_FILE,
                         help="Configuration file. default: %(default)s")
     # Host
-    parser.add_argument("-n", "--host", 
+    parser.add_argument("-n", "--host",
                         default=None,
                         dest="host",
                         help="Host on which specifed action will be executed. Default is localhost.")
     # Logging level
-    parser.add_argument('--loglevel', '-l', 
+    parser.add_argument('--loglevel', '-l',
                         metavar='LEVEL',
-                        help='The log level to use', 
+                        help='The log level to use',
                         default=logging.WARNING)
-
 
     _args = parser.parse_args()
 
     logging.basicConfig(level=_args.loglevel,
         format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
     _LOGGER = logging.getLogger()
-    
+
     # Load configuration
     if os.path.exists(_args.cfgfile):
         cfg = ConfigObj(_args.cfgfile)
