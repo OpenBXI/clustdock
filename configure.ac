@@ -54,6 +54,8 @@ INIT_BXIPRODUCT(BXIMODULE, [systemd])
 
 DEFAULT_BXIOPTION
 
+AC_ARG_ENABLE([server], [AS_HELP_STRING([--enable-server], [enable debugging, default: yes])])
+AM_CONDITIONAL([CD_SERVER],test x"$enable_server" != "xno")
 
 
 
