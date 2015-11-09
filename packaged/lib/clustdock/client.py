@@ -32,7 +32,6 @@ class ClustdockClient(object):
     def list(self, **kwargs):
         try:
             self.socket.send("list")
-            self.socket.setsockopt(zmq.RCVTIMEO, 5000)
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
             # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
@@ -67,7 +66,6 @@ class ClustdockClient(object):
         try:
             _LOGGER.debug("Trying to delete %s", nodeset)
             self.socket.send("del_node %s" % nodeset)
-            self.socket.setsockopt(zmq.RCVTIMEO, 5000)
             res = msgpack.unpackb(self.socket.recv())
             print(res)
             if str(res).startswith('Error'):
