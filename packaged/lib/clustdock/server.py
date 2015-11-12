@@ -41,7 +41,7 @@ class ClustdockServer(object):
                 self.clusters = cPickle.load(dump_file)
         except IOError:
             _LOGGER.debug("File %s doesn't exists. Skipping load from file.", DUMP_FILE)
-        except cPickle.PickleError:
+        except (cPickle.PickleError, AttributeError):
             _LOGGER.debug("Error when loading clusters from file")
 
     def save_to_file(self):
