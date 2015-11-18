@@ -32,14 +32,10 @@ class VirtualNode(object):
 
     @classmethod
     def split_name(cls, nodename):
-        try:
-            res = re.search(r'([a-z-_]+)(\d+)', nodename).groups()
-            clustername = res[0]
-            idx = int(res[1])
-            return (clustername, idx)
-        except AttributeError:
-            _LOGGER.error("Error when splitting %s: doesn't match regex", nodename)
-            return (nodename, 0)
+        res = re.search(r'^([a-z]+[a-z-_]+)(\d+)$', nodename).groups()
+        clustername = res[0]
+        idx = int(res[1])
+        return (clustername, idx)
 
     def start(self):
         """Start virtual node"""

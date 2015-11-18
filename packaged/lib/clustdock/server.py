@@ -106,6 +106,15 @@ class ClustdockServer(object):
         # 5: return the list of nodes to the client
         # _LOGGER.debug("len cluster.nodes: %d", len(VirtualCluster.clusters[name].nodes))
         err = []
+
+        if not vc.VirtualCluster.valid_clustername(name):
+            msg = "Error: clustername '{}' is not a valid name." + \
+                  " It must only contains lowercase letters or '-_' characters".format(name)
+            err.append(msg)
+            _LOGGER.error(msg)
+            self.socket.send_multipart([clientid, '', msgpack.packb(err)])
+            return
+
         if name in self.clusters:
             cluster = self.clusters[name]
         elif profil in self.profiles:

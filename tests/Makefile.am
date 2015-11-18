@@ -7,4 +7,5 @@ check-local:
 
 EXTRA_DIST=\
 	__init__.py\
-	test_libvirt_nodes.py
+	test_libvirt_nodes.py\
+	test_virtual_node.py

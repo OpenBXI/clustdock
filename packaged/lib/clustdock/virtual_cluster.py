@@ -9,6 +9,7 @@
 @namespace clustdock.libvirt_node LibvirtNode definition
 '''
 import logging
+import re
 from ClusterShell.NodeSet import NodeSet
 from ClusterShell.RangeSet import RangeSet
 
@@ -26,6 +27,15 @@ class VirtualCluster(object):
         self.name = name
         self.nodes = dict()
         self.cfg = self._extract_conf(cfg)
+
+    @classmethod
+    def valid_clustername(cls, name):
+        '''Test if the name is a valid clustername'''
+        try:
+            re.search(r'^([a-z]+[a-z-_]+)$', name).groups()
+            return True
+        except AttributeError:
+            return False
 
     @property
     def nb_nodes(self):

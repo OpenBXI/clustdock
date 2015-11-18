@@ -50,7 +50,7 @@ def main(args):
                 items = dict(poller.poll(1000))
                 if clserver.socket in items:
                     clientid, _, cmd = clserver.socket.recv_multipart()
-                    _LOGGER.debug("Something received from client: '%s'", clientid)
+                    _LOGGER.debug("Something received from client: '%s'", str(clientid))
                     _LOGGER.debug("cmd: '%s'", cmd)
                     clserver.process_cmd(cmd, clientid)
 
