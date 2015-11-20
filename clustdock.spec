@@ -38,7 +38,7 @@
 %define target_conf_dir /etc
 %define target_prefix  /usr/
 %define target_bin_dir  %{target_prefix}bin
-%define target_python_lib_dir %{python2_sitelib}
+%define target_python_lib_dir %{python2_sitearch}
 %define target_perllib_dir  %perl_vendorlib
 %define target_man_dir  %{_mandir}
 %define target_data_dir  %{target_prefix}/share/
@@ -111,7 +111,7 @@ ClustDock unified solution Server provisionning libvirt/docker clusters on the f
 test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %setup
 
-%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir} --with-python-execprefix=lib --with-python-prefix=lib
+%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir}
 ###############################################################################
 # The current directory is the one main directory of the tar
 # Order of upgrade is:
