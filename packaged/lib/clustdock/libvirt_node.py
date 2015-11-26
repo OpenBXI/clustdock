@@ -26,7 +26,7 @@ class LibvirtNode(clustdock.VirtualNode):
         """Instanciate a libvirt node"""
         super(LibvirtNode, self).__init__(name, **kwargs)
         self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None
-        self.baseimg = img
+        self.img = img
         self.img_dir = img_dir
         self.supl_iface = kwargs.get('add_iface', None)
         self.mem = kwargs.get('mem', None)
@@ -57,9 +57,9 @@ class LibvirtNode(clustdock.VirtualNode):
         # Check if base domain exists, otherwise exit
         base_dom = None
         try:
-            base_dom = mngtvirt.lookupByName(self.baseimg)
+            base_dom = mngtvirt.lookupByName(self.img)
         except libvirt.libvirtError:
-            _LOGGER.error("Base image doesn't exist (%s). Exitting", self.baseimg)
+            _LOGGER.error("Base image doesn't exist (%s). Exitting", self.img)
             sys.exit(1)
         # check if domain already exists
         if self.name in cvirt.listDefinedDomains():

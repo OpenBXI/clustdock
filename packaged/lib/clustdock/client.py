@@ -49,13 +49,13 @@ class ClustdockClient(object):
         rc = 0
         try:
             self.socket.send("spawn %s %s %s %s" % (profil, clustername, nb_nodes, host))
-            res = msgpack.unpackb(self.socket.recv())
-            for line in res:
-                if line.startswith('Error'):
-                    sys.stderr.write("%s\n" % line)
-                    rc = 1
-                else:
-                    print(line)
+            spawn_nodes, errors = msgpack.unpackb(self.socket.recv())
+            if len(errors) != 0:
+                rc = 1
+                for message in errors:
+                    sys.stderr.write(message)
+            if spawn_nodes != "":
+                print(spawn_nodes)
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
             rc = 2
@@ -63,22 +63,31 @@ class ClustdockClient(object):
 
     def stop(self, nodeset, **kwargs):
         """docstring"""
+        rc = 0
         try:
             _LOGGER.debug("Trying to delete %s", nodeset)
-            self.socket.send("del_node %s" % nodeset)
-            res = msgpack.unpackb(self.socket.recv())
-            print(res)
-            if str(res).startswith('Error'):
-                return 1
+            self.socket.send("stop_nodes %s" % nodeset)
+            stopped_nodes, errors = msgpack.unpackb(self.socket.recv())
+            if len(errors) != 0:
+                rc = 1
+                for message in errors:
+                    sys.stderr.write(message)
+            if stopped_nodes != "":
+                print(stopped_nodes)
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
-            return 2
+            rc = 2
+        return rc
 
     def getip(self, nodeset, **kwargs):
+        rc = 0
         try:
             self.socket.send("get_ip %s" % nodeset)
-            msg = self.socket.recv()
-            res = msgpack.unpackb(msg)
+            res, errors = msgpack.unpackb(self.socket.recv())
+            if len(errors) != 0:
+                rc = 1
+                for message in errors:
+                    sys.stderr.write(message)
             if len(res) == 1:
                 print(res[0][0])
             else:
@@ -86,4 +95,5 @@ class ClustdockClient(object):
                     print("{0}\t{1}".format(*item))
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
-            return 2
+            rc = 2
+        return rc

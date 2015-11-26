@@ -16,6 +16,7 @@
 
 import unittest
 import clustdock
+import clustdock.server as server
 import clustdock.virtual_cluster as vc
 
 
@@ -88,6 +89,85 @@ class VirtualClusterTest(unittest.TestCase):
         self.assertFalse(vc.VirtualCluster.valid_clustername(name))
         name = "with1number2in3the4name"
         self.assertFalse(vc.VirtualCluster.valid_clustername(name))
+
+    def test_virtual_cluster_encode_decode(self):
+        """Test Encoding/Decoding virtual cluster"""
+        profil = {
+            'vtype': "libvirt",
+            'img': "bxifmfvt",
+            'img_dir': "/var/lib/libvirt/images",
+            'mem': 1024,
+            'cpu': 1
+        }
+        name = "cluster_name"
+        cluster = vc.VirtualCluster(name, 'gama', profil)
+        expected = {
+            'cfg': {
+                'default': {
+                    'cpu': 1,
+                    'img': 'bxifmfvt',
+                    'img_dir': '/var/lib/libvirt/images',
+                    'mem': 1024,
+                    'vtype': 'libvirt'
+                }
+            },
+            'name': 'cluster_name',
+            'profil': 'gama',
+            'nodes': {}
+        }
+        cluster_desc = server.encode_cluster(cluster)
+        self.assertDictEqual(expected, cluster_desc)
+        new_cluster = server.decode_cluster(cluster_desc)
+        self.assertDictEqual(new_cluster.__dict__, expected)
+
+    def test_virtual_cluster_encode_decode_with_nodes(self):
+        """Test Encoding/Decoding virtual cluster with nodes"""
+        profil = {
+            'vtype': "libvirt",
+            'img': "bxifmfvt",
+            'img_dir': "/var/lib/libvirt/images",
+            'mem': 1024,
+            'cpu': 1
+        }
+        name = "cluster_name"
+        cluster = vc.VirtualCluster(name, 'gama', profil)
+        cluster.add_node(1, None)
+        cluster_desc = server.encode_cluster(cluster)
+        expected = {
+            'cfg': {
+                'default': {
+                    'cpu': 1,
+                    'host': None,
+                    'img': 'bxifmfvt',
+                    'img_dir': '/var/lib/libvirt/images',
+                    'mem': 1024,
+                    'vtype': 'libvirt'
+                }
+            },
+            'name': 'cluster_name',
+            'profil': 'gama',
+            'nodes': {
+                'cluster_name1': {
+                    'clustername': 'cluster_name',
+                    'cpu': 1,
+                    'host': 'localhost',
+                    'idx': 1,
+                    'img': 'bxifmfvt',
+                    'img_dir': '/var/lib/libvirt/images',
+                    'ip': '',
+                    'mem': 1024,
+                    'name': 'cluster_name1',
+                    'supl_iface': None,
+                    'unreachable': False,
+                    'uri': None
+                }
+            }
+        }
+        self.maxDiff = None
+        self.assertDictEqual(expected, cluster_desc)
+        new_cluster = server.decode_cluster(cluster_desc)
+        encoded = server.encode_cluster(new_cluster)
+        self.assertDictEqual(encoded, expected)
 
 
 if __name__ == "__main__":

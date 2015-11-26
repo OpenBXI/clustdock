@@ -12,15 +12,17 @@ import argparse
 import os
 import logging
 import zmq
+from zmq.devices import ThreadDevice
 import time
 from configobj import ConfigObj
 import signal
 import signalfd
+from multiprocessing import Process
 
 import clustdock.server
 
 CONFIG_FILE = "/etc/clustdockd.conf"
-
+THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
 
 def main(args):
     '''Main function'''
@@ -37,10 +39,29 @@ def main(args):
     clserver.inventory()
     last_exec = time.time()
 
-    # Entering main loop
-    _LOGGER.debug("Entering main loop")
     fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
     signalfd.sigprocmask(signalfd.SIG_BLOCK, [signal.SIGTERM])
+
+    td = ThreadDevice(zmq.QUEUE, zmq.ROUTER, zmq.DEALER)
+    _LOGGER.debug("Trying to bind threadDevice to tcp://*:%s", args.port)
+    td.bind_in('tcp://*:%s' % args.port)
+    td.bind_out(THREAD_SOCK)
+    td.setsockopt_in(zmq.IDENTITY, 'ROUTER')
+    td.setsockopt_out(zmq.IDENTITY, 'DEALER')
+    td.start()
+
+    workers = []
+    # Starting 5 workers
+    for idx in xrange(0, 5):
+        worker = clustdock.server.ClustdockWorker(THREAD_SOCK, idx)
+        _LOGGER.debug("Starting worker %d", idx)
+        proc = Process(target=worker.__class__.start,
+                       args=(worker, args.loglevel, args.logfile))
+        proc.start()
+        workers.append(proc)
+
+    # Entering main loop
+    _LOGGER.debug("Entering main loop")
     with os.fdopen(fd) as fo:
         poller = zmq.Poller()
         poller.register(clserver.socket, zmq.POLLIN)
@@ -49,19 +70,18 @@ def main(args):
             try:
                 items = dict(poller.poll(1000))
                 if clserver.socket in items:
-                    clientid, _, cmd = clserver.socket.recv_multipart()
-                    _LOGGER.debug("Something received from client: '%s'", str(clientid))
-                    _LOGGER.debug("cmd: '%s'", cmd)
-                    clserver.process_cmd(cmd, clientid)
+                    worker_id, cmd = clserver.socket.recv().split(None, 1)
+                    _LOGGER.debug("cmd received from worker %s: %s",
+                                  worker_id,
+                                  cmd)
+                    clserver.process_cmd(cmd, worker_id)
 
                 if last_exec + 60 <= time.time():
+
                     clserver.inventory()
                     last_exec = time.time()
 
                 if fo.fileno() in items:
-                    # bbytes = os.read(fd, 128)
-                    # _LOGGER.debug("bytes: %s", bbytes)
-                    # info = signalfd.read_siginfo(fd)
                     _LOGGER.debug("Signal received")
                     clserver.save_to_file()
                     break
@@ -69,6 +89,10 @@ def main(args):
             except KeyboardInterrupt:
                 clserver.save_to_file()
                 break
+
+    _LOGGER.info("Terminating workers")
+    for worker in workers:
+        worker.terminate()
 
     clserver.socket.close()
     clserver.ctx.destroy()

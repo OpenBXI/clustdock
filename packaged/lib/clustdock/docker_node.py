@@ -24,7 +24,7 @@ class DockerNode(clustdock.VirtualNode):
     def __init__(self, name, img, **kwargs):
         """Instanciate a docker container"""
         super(DockerNode, self).__init__(name, **kwargs)
-        self.baseimg = img
+        self.img = img
         self.running = False
         self.docker_host = "NO_PROXY=%s DOCKER_HOST=tcp://%s:4243" % (
             self.host, self.host) if self.host != 'localhost' else ''
@@ -32,7 +32,6 @@ class DockerNode(clustdock.VirtualNode):
         self.supl_iface = kwargs.get('add_iface', None)
         if self.supl_iface and len(self.supl_iface) == 3:
             self.supl_iface = [self.supl_iface]
-        _LOGGER.debug(self.supl_iface)
 
     def start(self):
         '''Start a docker container'''
@@ -43,7 +42,7 @@ class DockerNode(clustdock.VirtualNode):
                                        self.name,
                                        self.name,
                                        self.docker_opts,
-                                       self.baseimg)
+                                       self.img)
         spawned = 1
         try:
             _LOGGER.info("trying to launch %s", spawn_cmd)

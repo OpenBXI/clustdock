@@ -23,9 +23,10 @@ _LOGGER = logging.getLogger(__name__)
 class VirtualCluster(object):
     '''Represents a docker cluster'''
 
-    def __init__(self, name, cfg):
+    def __init__(self, name, profil, cfg, **kwargs):
         self.name = name
         self.nodes = dict()
+        self.profil = profil
         self.cfg = self._extract_conf(cfg)
 
     @classmethod
@@ -52,10 +53,12 @@ class VirtualCluster(object):
             }
         }
         for key, val in cfg.iteritems():
-            if isinstance(val, dict):
+            if isinstance(key, int) and isinstance(val, dict):
                 rset = RangeSet(key)
                 for idx in rset:
                     conf[idx] = val
+            elif key == 'default':
+                conf['default'].update(val)
             else:
                 conf['default'][key] = val
         try:

@@ -12,28 +12,33 @@ import argparse
 import os
 import logging
 from configobj import ConfigObj
-
 import clustdock.client
 
 CONFIG_FILE = "/etc/clustdock.conf"
 _LOGGER = logging.getLogger(__name__)
+SERVER = "tcp://localhost:5050"
 
 
 def main(args):
     '''Main function'''
     _LOGGER.debug("Entering main function")
-    server = "tcp://localhost:5050"
     if hasattr(args, 'cfg'):
-        server = args.cfg.get('SERVER_URL', server)
+        server = args.cfg.get('SERVER_URL', SERVER)
     if args.server:
         server = args.server
-    client = clustdock.client.ClustdockClient(server)
-    func = getattr(client, args.cmd, None)
-    if func is not None:
-        return func(**vars(args))
-    else:
-        _LOGGER.debug("No function named %s", args.cmd)
-        return 1
+    try:
+        client = clustdock.client.ClustdockClient(server)
+        func = getattr(client, args.cmd, None)
+        if func is not None:
+            return func(**vars(args))
+        else:
+            _LOGGER.debug("No function named %s", args.cmd)
+            client.socket.close()
+            return 1
+    except KeyboardInterrupt:
+        return 2
+    finally:
+        client.socket.close()
 
 
 if __name__ == "__main__":
