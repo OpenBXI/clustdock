@@ -67,11 +67,11 @@ INIT_BXIPYTHON
 PC_PYTHON_CHECK_MODULE([zmq], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([msgpack], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([ClusterShell], [], [AC_MSG_ERROR(Module not found)])
+PC_PYTHON_CHECK_MODULE([signalfd], [], [AC_MSG_ERROR(Module not found)])
 PC_PYTHON_CHECK_MODULE([libvirt], [], [AC_MSG_WARN(Module not found, this is required for running)])
 PC_PYTHON_CHECK_MODULE([guestfs], [], [AC_MSG_WARN(Module not found, this is required for running)])
 PC_PYTHON_CHECK_MODULE([ipaddr], [], [AC_MSG_WARN(Module not found, this is required for running)])
 PC_PYTHON_CHECK_MODULE([lxml], [], [AC_MSG_WARN(Module not found, this is required for running)])
-PC_PYTHON_CHECK_MODULE([signalfd], [], [AC_MSG_WARN(Module not found, this is required for running)])
 ###################################### End PYTHON PART ############################################################
 
 
