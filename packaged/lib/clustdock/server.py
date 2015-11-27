@@ -270,8 +270,7 @@ class ClustdockServer(object):
         err = ""
         nodes = []
         if not vc.VirtualCluster.valid_clustername(name):
-            err = "Error: clustername '{}' is not a valid name." + \
-                  " It must only contains lowercase letters or '-_' characters\n".format(name)
+            err = "Error: clustername '{}' is not a valid name\n".format(name)
             _LOGGER.error(err)
             self.socket.send(msgpack.packb((nodes, err)))
             return

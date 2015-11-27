@@ -53,7 +53,8 @@ if __name__ == "__main__":
     parser_spawn.add_argument('profil',
                               help="Profil of nodes to spawn")
     parser_spawn.add_argument('clustername',
-                              help="Name of the cluster")
+                              help="Name of the cluster. "
+                                   "Should match '^[a-z]+[a-z-_]+$'")
     parser_spawn.add_argument('nb_nodes',
                               type=int,
                               nargs='?',
