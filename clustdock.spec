@@ -96,7 +96,7 @@ Requires: %{name}
 Requires: python-signalfd
 Requires: clustershell
 Requires: libvirt-python
-Requires: python-libguestfs
+Requires: libguestfs-tools
 Requires: python-ipaddr
 Requires: python-lxml
 
