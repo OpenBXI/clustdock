@@ -72,6 +72,7 @@ class LibvirtNode(clustdock.VirtualNode):
         # check if domain already exists
         if self.name in cvirt.listDefinedDomains():
             msg = "Image '{}' already exists. Skipping\n".format(self.name)
+            # if force, delete and create
             _LOGGER.error(msg)
             pipe.send(msg)
             sys.exit(1)
@@ -83,7 +84,7 @@ class LibvirtNode(clustdock.VirtualNode):
 
         # Create new disk file for the node
         # Just save diffs from based image
-        cmd = "qemu-img create -f qcow2 -b %s %s && chmod a+w %s" % (self.baseimg_path, 
+        cmd = "qemu-img create -f qcow2 -b %s %s && chmod a+w %s" % (self.baseimg_path,
                                                                      self.img_path,
                                                                      self.img_path)
         _LOGGER.debug("Launching %s", cmd)
@@ -94,8 +95,13 @@ class LibvirtNode(clustdock.VirtualNode):
             msg += stderr
             _LOGGER.error(msg)
             spawned = 1
+            self.stop(fork=False)
         else:
-            cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
+            # cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
+            cmd = "guestfish -i -a %s write /etc/hostname '%s'" % (
+                  self.img_path,
+                  self.name)
+            _LOGGER.debug("Launching %s", cmd)
             p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
             (_, stderr) = p.communicate()
             if p.returncode != 0:
@@ -103,6 +109,7 @@ class LibvirtNode(clustdock.VirtualNode):
                 msg += stderr
                 _LOGGER.error(msg)
                 spawned = 1
+                self.stop(fork=False)
             else:
                 try:
                     cvirt.defineXML(new_xml)
