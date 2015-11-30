@@ -28,11 +28,11 @@ class LibvirtNode(clustdock.VirtualNode):
         self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None
         self.img = img
         self.img_dir = img_dir
-        self.supl_iface = kwargs.get('add_iface', None)
+        self.add_iface = kwargs.get('add_iface', None)
         self.mem = kwargs.get('mem', None)
         self.cpu = kwargs.get('cpu', None)
-        if self.supl_iface and not isinstance(self.supl_iface, list):
-            self.supl_iface = [self.supl_iface]
+        if self.add_iface and not isinstance(self.add_iface, list):
+            self.add_iface = [self.add_iface]
 
     @property
     def img_path(self):
@@ -45,25 +45,35 @@ class LibvirtNode(clustdock.VirtualNode):
         path = tree.xpath("//devices/disk/source/@file")[0]
         self.baseimg_path = path
 
-    def start(self):
+    def start(self, pipe):
         """Start libvirt virtual machine"""
+        spawned = 0
+        msg = 'OK'
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
         try:
             cvirt = libvirt.open(self.uri)
-        except libvirt.libvirtError:
-            _LOGGER.debug("Couldn't connect to host %s. Skipping.", self.host)
+        except libvirt.libvirtError as exc:
+            msg = "Couldn't connect to host '{}'\n".format(self.host)
+            msg += str(exc)
+            _LOGGER.error(msg)
+            pipe.send(msg)
             sys.exit(1)
         mngtvirt = libvirt.open()
         # Check if base domain exists, otherwise exit
         base_dom = None
         try:
             base_dom = mngtvirt.lookupByName(self.img)
-        except libvirt.libvirtError:
-            _LOGGER.error("Base image doesn't exist (%s). Exitting", self.img)
+        except libvirt.libvirtError as exc:
+            msg = "Base image '{}' doesn't exist\n".format(self.img)
+            msg += str(exc)
+            _LOGGER.error(msg)
+            pipe.send(msg)
             sys.exit(1)
         # check if domain already exists
         if self.name in cvirt.listDefinedDomains():
-            _LOGGER.error("Image %s already exists. Skipping", self.name)
+            msg = "Image '{}' already exists. Skipping\n".format(self.name)
+            _LOGGER.error(msg)
+            pipe.send(msg)
             sys.exit(1)
 
         # Get xml description of the base image
@@ -73,50 +83,74 @@ class LibvirtNode(clustdock.VirtualNode):
 
         # Create new disk file for the node
         # Just save diffs from based image
-        cmd = "qemu-img create -f qcow2 -b %s %s" % (self.baseimg_path, self.img_path)
-        _LOGGER.info("Launching %s", cmd)
-        try:
-            sp.check_call(cmd, shell=True)
-            cmd = "chmod a+w %s" % self.img_path
-            sp.check_call(cmd, shell=True)
-            _LOGGER.info("Launching %s", cmd)
-        except sp.CalledProcessError:
-            _LOGGER.error("Something went wrong when spawning %s", self.name)
-            sys.exit(1)
+        cmd = "qemu-img create -f qcow2 -b %s %s && chmod a+w %s" % (self.baseimg_path, 
+                                                                     self.img_path,
+                                                                     self.img_path)
+        _LOGGER.debug("Launching %s", cmd)
+        p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (_, stderr) = p.communicate()
+        if p.returncode != 0:
+            msg = "Error when spawning '{}'\n".format(self.name)
+            msg += stderr
+            _LOGGER.error(msg)
+            spawned = 1
+        else:
+            cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+            (_, stderr) = p.communicate()
+            if p.returncode != 0:
+                msg = "Setting hostname for node '{}' failed\n".format(self.name)
+                msg += stderr
+                _LOGGER.error(msg)
+                spawned = 1
+            else:
+                try:
+                    cvirt.defineXML(new_xml)
+                    dom = cvirt.lookupByName(self.name)
+                    dom.create()
+                except libvirt.libvirtError as exc:
+                    msg = "Domain '{}' alreay exists\n".format(self.name)
+                    msg += str(exc)
+                    _LOGGER.error(exc)
+                    spawned = 1
 
-        # Define the new node
-        try:
-            try:
-                cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
-                sp.check_call(cmd, shell=True)
-            except sp.CalledProcessError:
-                _LOGGER.error("Setting hostname for %s failed", self.name)
-                sys.exit(1)
-            cvirt.defineXML(new_xml)
-            dom = cvirt.lookupByName(self.name)
-            dom.create()
-        except libvirt.libvirtError:
-            _LOGGER.error("Domain alreay exists (%s). Exitting", self.name)
-            sys.exit(1)
-        # Node spawned, return True
-        sys.exit(0)
+        pipe.send(msg)
+        sys.exit(spawned)
 
-    def stop(self):
+    def stop(self, pipe=None, fork=True):
         """Stop libvirt node"""
-        cvirt = libvirt.open(self.uri)
-        dom_list = cvirt.listAllDomains()
-        dom = cvirt.lookupByName(self.name)
-        if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
-            _LOGGER.debug('Destroying domain %s', self.name)
-            dom.destroy()
-        _LOGGER.debug('Undefine domain %s', self.name)
-        dom.undefine()  # --remove-all-storage
+        msg = 'OK'
+        rc = 0
         try:
+            cvirt = libvirt.open(self.uri)
+        except libvirt.libvirtError as exc:
+            msg = "Couldn't connect to host '{}'\n".format(self.host)
+            msg += str(exc)
+            _LOGGER.error(msg)
+            rc = 1
+        else:
+            dom_list = cvirt.listAllDomains()
+            dom = cvirt.lookupByName(self.name)
+            if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
+                _LOGGER.debug('Destroying domain %s', self.name)
+                dom.destroy()
+            _LOGGER.debug('Undefine domain %s', self.name)
+            dom.undefine()  # --remove-all-storage
             cmd = "rm -f %s" % self.img_path
             _LOGGER.debug("Launching %s", cmd)
-            sp.check_call(cmd, shell=True)
-        except sp.CalledProcessError:
-            _LOGGER.error("Something went wrong when removing disk for %s", self.name)
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+            (_, stderr) = p.communicate()
+            if p.returncode != 0:
+                msg = "Error when removing disk for node '{}'\n".format(self.name)
+                msg += stderr
+                _LOGGER.error(msg)
+                rc = 1
+        if fork:
+            if pipe:
+                pipe.send(msg)
+            sys.exit(rc)
+        else:
+            return rc
 
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
@@ -176,8 +210,8 @@ class LibvirtNode(clustdock.VirtualNode):
         macs = tree.xpath("/domain/devices/interface/mac")
         for mac in macs:
             mac.getparent().remove(mac)
-        if self.supl_iface:
-            for iface in self.supl_iface:
+        if self.add_iface:
+            for iface in self.add_iface:
                 tree = self._add_iface(tree, iface)
         if self.mem:
             self._set_memory(tree)

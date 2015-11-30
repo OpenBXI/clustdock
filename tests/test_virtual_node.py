@@ -157,7 +157,7 @@ class VirtualClusterTest(unittest.TestCase):
                     'ip': '',
                     'mem': 1024,
                     'name': 'cluster_name1',
-                    'supl_iface': None,
+                    'add_iface': None,
                     'unreachable': False,
                     'uri': None
                 }

@@ -138,23 +138,30 @@ class ClustdockWorker(object):
             errors.append(err)
         processes = []
         for node in nodes:
-            p = mp.Process(target=node.__class__.start, args=(node,))
+            to_child, to_self = mp.Pipe()
+            p = mp.Process(target=node.__class__.start,
+                           args=(node,),
+                           kwargs={'pipe': to_self})
             p.start()
-            processes.append((node, p))
+            processes.append((node, p, (to_child, to_self)))
         spawned_nodes = []
         nodes_to_del = []
-        for node, p in processes:
+        for node, p, pipes in processes:
             p.join()
             if p.exitcode == 0:
                 spawned_nodes.append(node.name)
             else:
                 nodes_to_del.append(node.name)
+                err = pipes[0].recv()
+                errors.append(err)
+            pipes[0].close()
+            pipes[1].close()
 
         _LOGGER.debug(spawned_nodes)
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         errors_nodelist = str(NodeSet.fromlist(nodes_to_del))
-        if len(nodes_to_del) != 0:
-            errors.append("Error: unable to spawn %s nodes" % errors_nodelist)
+        # if len(nodes_to_del) != 0:
+        #    errors.append("Error: unable to spawn %s nodes" % errors_nodelist)
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
 
         # Send the list of non-spawn nodes to the server for deletion
@@ -172,23 +179,24 @@ class ClustdockWorker(object):
             errors.append(err)
         processes = []
         stopped_nodes = []
-        err = []
         for node in nodes:
-            _LOGGER.debug("stopping node %s", node.name)
-            p = mp.Process(target=node.__class__.stop, args=(node,))
+            to_child, to_self = mp.Pipe()
+            p = mp.Process(target=node.__class__.stop,
+                           args=(node,),
+                           kwargs={'pipe': to_self})
             p.start()
-            processes.append((node, p))
+            processes.append((node, p, (to_child, to_self)))
 
-        for node, p in processes:
+        for node, p, pipes in processes:
             p.join()
             if p.exitcode == 0:
                 stopped_nodes.append(node.name)
             else:
-                err.append(node.name)
+                errors.append(pipes[0].recv())
+            pipes[0].close()
+            pipes[1].close()
 
         nodelist = str(NodeSet.fromlist(stopped_nodes))
-        errors_nodelist = str(NodeSet.fromlist(err))
-        errors.append(errors_nodelist)
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
 
 
@@ -340,7 +348,12 @@ class ClustdockServer(object):
             _LOGGER.error(res)
         else:
             for nodename in nodeset:
-                clustername, _ = clustdock.VirtualNode.split_name(nodename)
+                try:
+                    clustername, _ = clustdock.VirtualNode.split_name(nodename)
+                except AttributeError:
+                    _LOGGER.error("%s is not a valid node name", nodename)
+                    res += "Error: '{}' is not a valid node name\n".format(nodename)
+                    continue
                 cluster = self.clusters.get(clustername, None)
                 if cluster:
                     node = cluster.nodes.get(nodename, None)

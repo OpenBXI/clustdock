@@ -37,11 +37,11 @@ class VirtualNode(object):
         idx = int(res[1])
         return (clustername, idx)
 
-    def start(self):
+    def start(self, pipe):
         """Start virtual node"""
         raise NotImplementedError("Must be redefine is subclasses")
 
-    def stop(self):
+    def stop(self, pipe=None, fork=True):
         """Stop virtual node"""
         raise NotImplementedError("Must be redefine is subclasses")
 

@@ -22,6 +22,7 @@ SERVER = "tcp://localhost:5050"
 def main(args):
     '''Main function'''
     _LOGGER.debug("Entering main function")
+    server = SERVER
     if hasattr(args, 'cfg'):
         server = args.cfg.get('SERVER_URL', SERVER)
     if args.server:
@@ -60,6 +61,11 @@ if __name__ == "__main__":
                               nargs='?',
                               default=1,
                               help="Number of nodes. default: %(default)s")
+    # Host
+    parser_spawn.add_argument("-n", "--host",
+                        default=None,
+                        dest="host",
+                        help="Host on which nodes will be spawned. Default is localhost.")
 
     # stop command
     parser_stop = subparsers.add_parser("stop",
@@ -80,11 +86,6 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cfgfile",
                         default=CONFIG_FILE,
                         help="Configuration file. default: %(default)s")
-    # Host
-    parser.add_argument("-n", "--host",
-                        default=None,
-                        dest="host",
-                        help="Host on which specifed action will be executed. Default is localhost.")
     # Logging level
     parser.add_argument('--loglevel', '-l',
                         metavar='LEVEL',

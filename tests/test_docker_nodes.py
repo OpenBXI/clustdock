@@ -36,7 +36,7 @@ class DockerNodeTest(unittest.TestCase):
             'ip': '',
             'name': 'dv0',
             'running': False,
-            'supl_iface': None,
+            'add_iface': None,
             'unreachable': False
         }
         self.assertDictEqual(expected, node_desc)

@@ -53,7 +53,7 @@ class ClustdockClient(object):
             if len(errors) != 0:
                 rc = 1
                 for message in errors:
-                    sys.stderr.write(message)
+                    sys.stderr.write("{}\n".format(message.rstrip()))
             if spawn_nodes != "":
                 print(spawn_nodes)
         except zmq.error.ZMQError:
@@ -71,7 +71,7 @@ class ClustdockClient(object):
             if len(errors) != 0:
                 rc = 1
                 for message in errors:
-                    sys.stderr.write(message)
+                    sys.stderr.write("{}\n".format(message.rstrip()))
             if stopped_nodes != "":
                 print(stopped_nodes)
         except zmq.error.ZMQError:

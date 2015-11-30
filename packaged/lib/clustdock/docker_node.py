@@ -10,6 +10,7 @@
 '''
 import logging
 import sys
+import re
 import subprocess as sp
 from ipaddr import IPv4Network, AddressValueError
 import clustdock
@@ -17,6 +18,13 @@ import clustdock
 _LOGGER = logging.getLogger(__name__)
 
 STATUS = {'true': True, 'false': False}
+
+
+class AddIfaceException(Exception):
+
+    def __init__(self, msg, iface):
+        super(AddIfaceException, self).__init__(msg)
+        self.iface = iface
 
 
 class DockerNode(clustdock.VirtualNode):
@@ -29,46 +37,66 @@ class DockerNode(clustdock.VirtualNode):
         self.docker_host = "NO_PROXY=%s DOCKER_HOST=tcp://%s:4243" % (
             self.host, self.host) if self.host != 'localhost' else ''
         self.docker_opts = kwargs.get('docker_opts', '')
-        self.supl_iface = kwargs.get('add_iface', None)
-        if self.supl_iface and len(self.supl_iface) == 3:
-            self.supl_iface = [self.supl_iface]
+        self.add_iface = kwargs.get('add_iface', None)
+        if self.add_iface and len(self.add_iface) == 3:
+            self.add_iface = [self.add_iface]
 
-    def start(self):
+    def start(self, pipe):
         '''Start a docker container'''
         # --cpuset-cpus {cpu_bind} \
+        msg = 'OK'
         spawn_cmd = "%s docker run -d -t --name %s -h %s \
                 --cap-add net_raw --cap-add net_admin \
-                %s %s &> /dev/null" % (self.docker_host,
+                %s %s" % (self.docker_host,
                                        self.name,
                                        self.name,
                                        self.docker_opts,
                                        self.img)
         spawned = 1
-        try:
-            _LOGGER.info("trying to launch %s", spawn_cmd)
-            sp.check_call(spawn_cmd, shell=True)
-        except sp.CalledProcessError:
-            _LOGGER.error("Something went wrong when spawning %s", self.name)
+        _LOGGER.info("trying to launch %s", spawn_cmd)
+        p = sp.Popen(spawn_cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (_, stderr) = p.communicate()
+        if p.returncode != 0:
+            msg = "Error when spawning '{}'\n".format(self.name)
+            msg += stderr
+            _LOGGER.error(msg)
+            self.stop(fork=False)
         else:
             try:
-                if self.supl_iface:
-                    for iface in self.supl_iface:
+                if self.add_iface:
+                    for iface in self.add_iface:
                         self._add_iface(iface)
                 spawned = 0
-            except Exception:
-                self.stop()
+            except AddIfaceException as exc:
+                msg = "Error when spawning '{}'. Cannot add interface '{}'\n".format(
+                      self.name,
+                      exc.iface)
+                msg += str(exc)
+                _LOGGER.error(msg)
+                self.stop(fork=False)
+        pipe.send(msg)
         sys.exit(spawned)
 
-    def stop(self):
+    def stop(self, pipe=None, fork=True):
         """Stop docker container"""
+        rc = 0
+        msg = 'OK'
         rmcmd = "%s docker rm -f -v %s" % (self.docker_host, self.name)
-        try:
-            _LOGGER.debug("Trying to delete %s", self.name)
-            sp.check_call(rmcmd, shell=True)
-        except sp.CalledProcessError:
-            _LOGGER.error("Something went wrong when stopping %s", self.name)
-            sys.exit(1)
-        sys.exit(0)
+        _LOGGER.debug("Launching command: %s", rmcmd)
+        p = sp.Popen(rmcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (_, stderr) = p.communicate()
+        if p.returncode != 0:
+            msg = "Error when stopping '{}'\n".format(self.name)
+            msg += stderr
+            _LOGGER.error(msg)
+            rc = 1
+
+        if fork:
+            if pipe:
+                pipe.send(msg)
+            sys.exit(rc)
+        else:
+            return rc
 
     def is_alive(self):
         """Return True if node is still present on the host, else False"""
@@ -111,22 +139,20 @@ class DockerNode(clustdock.VirtualNode):
         """Add another interface to the docker container"""
         prefix = "ssh %s" % self.host if self.host != 'localhost' else ''
         br, eth, ip = iface
-        try:
-            # ip addr show docker0 -> check the bridge presence
-            cmd = "%s ip addr show %s | grep 'inet ' | awk '{print $2}'" % (
-                    prefix,
-                    br)
-            p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
-            (br_ip, _) = p.communicate()
-        except sp.CalledProcessError:
-            raise Exception("Something went wrong when trying to find bridge %s", br)
-
-        br_ip = br_ip.strip()
-        try:
+        # ip addr show docker0 -> check the bridge presence
+        cmd = "%s ip addr show %s" % (prefix, br)
+        _LOGGER.debug("Trying to execute: %s", cmd)
+        p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (ip_info, stderr) = p.communicate()
+        if p.returncode != 0:
+            _LOGGER.error(stderr)
+            raise AddIfaceException(stderr, br)
+        match = re.search("inet\s+([^\s]+)\s", ip_info)
+        if match:
+            br_ip = match.groups()[0]
             IPv4Network(br_ip)
-        except AddressValueError:
-            _LOGGER.error("Bridge lookup failed: %s", br_ip)
-            raise Exception("Bridge %s not found", br)
+        else:
+            raise AddIfaceException("Cannot find ip for bridge %s" % br, br)
         # test if it's an ovs bridge
         rc = sp.call("%s ovs-vsctl br-exists %s &> /dev/null" % (
                 prefix, br), shell=True)
@@ -138,10 +164,11 @@ class DockerNode(clustdock.VirtualNode):
             cmd += " --ipaddress=%s" % ip if ip != "dhcp" else ""
 
             _LOGGER.debug("Trying to execute: %s", cmd)
-            try:
-                sp.check_call(cmd, shell=True)
-            except sp.CalledProcessError:
-                raise Exception("Adding interface on bridge %s failed", br)
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+            (_, stderr) = p.communicate()
+            if p.returncode != 0:
+                _LOGGER.error(stderr)
+                raise AddIfaceException(stderr, br)
         else:
             # it's a system bridge
 
@@ -149,8 +176,11 @@ class DockerNode(clustdock.VirtualNode):
             cmd = "%s docker inspect -f '{{.State.Pid}}' %s" % (
                     self.docker_host,
                     self.name)
-            p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
-            (pid, _) = p.communicate()
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+            (pid, stderr) = p.communicate()
+            if p.returncode != 0:
+                _LOGGER.error(stderr)
+                raise AddIfaceException(stderr, br)
             pid = pid.strip()
             if_a_name = "v%spl%s" % (eth, pid)
             if_b_name = "v%spg%s" % (eth, pid)
@@ -169,7 +199,8 @@ class DockerNode(clustdock.VirtualNode):
                       'ENDSSH'
             cmd = cmd.format(pid=pid, a_if=if_a_name, b_if=if_b_name)
             _LOGGER.debug("Trying to execute: %s", cmd)
-            try:
-                sp.check_call(cmd, shell=True)
-            except sp.CalledProcessError:
-                raise Exception("Adding interface on bridge %s failed", br)
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+            (_, stderr) = p.communicate()
+            if p.returncode != 0:
+                _LOGGER.error(stderr)
+                raise AddIfaceException(stderr, br)
