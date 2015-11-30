@@ -38,8 +38,6 @@ def main(args):
             return 1
     except KeyboardInterrupt:
         return 2
-    finally:
-        client.socket.close()
 
 
 if __name__ == "__main__":
