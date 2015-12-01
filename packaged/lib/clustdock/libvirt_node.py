@@ -172,13 +172,14 @@ class LibvirtNode(clustdock.VirtualNode):
                 _LOGGER.error(msg)
                 rc = 1
             else:
-                _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
-                rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
-                if rc != 0:
-                    msg = "Error when stopping '{}'\n".format(self.name)
-                    msg += stderr
-                    _LOGGER.error(msg)
-                    rc = 1
+                if self.after_end:
+                    _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
+                    rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
+                    if rc != 0:
+                        msg = "Error when stopping '{}'\n".format(self.name)
+                        msg += stderr
+                        _LOGGER.error(msg)
+                        rc = 1
         if fork:
             if pipe:
                 pipe.send(msg)
