@@ -149,6 +149,9 @@ class VirtualClusterTest(unittest.TestCase):
             'nodes': {
                 'cluster_name1': {
                     'clustername': 'cluster_name',
+                    'before_start': None,
+                    'after_start': None,
+                    'after_end': None,
                     'cpu': 1,
                     'host': 'localhost',
                     'idx': 1,

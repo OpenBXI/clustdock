@@ -37,7 +37,6 @@ class DockerNode(clustdock.VirtualNode):
         self.docker_host = "NO_PROXY=%s DOCKER_HOST=tcp://%s:4243" % (
             self.host, self.host) if self.host != 'localhost' else ''
         self.docker_opts = kwargs.get('docker_opts', '')
-        self.add_iface = kwargs.get('add_iface', None)
         if self.add_iface and len(self.add_iface) == 3:
             self.add_iface = [self.add_iface]
 
@@ -53,6 +52,16 @@ class DockerNode(clustdock.VirtualNode):
                                        self.docker_opts,
                                        self.img)
         spawned = 1
+        if self.before_start:
+            _LOGGER.debug("Trying to launch before start hook: %s", self.before_start)
+            rc, _, stderr = self.run_hook(self.before_start, clustdock.DOCKER_NODE)
+            if rc != 0:
+                msg = "Error when spawning '{}'\n".format(self.name)
+                msg += stderr
+                _LOGGER.error(msg)
+                pipe.send(msg)
+                sys.exit(spawned)
+
         _LOGGER.info("trying to launch %s", spawn_cmd)
         p = sp.Popen(spawn_cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
         (_, stderr) = p.communicate()
@@ -74,6 +83,17 @@ class DockerNode(clustdock.VirtualNode):
                 msg += str(exc)
                 _LOGGER.error(msg)
                 self.stop(fork=False)
+            else:
+                if self.after_start:
+                    _LOGGER.debug("Trying to launch after start hook: %s",
+                                  self.after_start)
+                    rc, _, stderr = self.run_hook(self.after_start,
+                                                  clustdock.DOCKER_NODE)
+                    if rc != 0:
+                        msg = "Error when spawning '{}'\n".format(self.name)
+                        msg += stderr
+                        _LOGGER.error(msg)
+                        spawned = 1
         pipe.send(msg)
         sys.exit(spawned)
 
@@ -90,7 +110,14 @@ class DockerNode(clustdock.VirtualNode):
             msg += stderr
             _LOGGER.error(msg)
             rc = 1
-
+        else:
+            _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
+            rc, _, stderr = self.run_hook(self.after_end, clustdock.DOCKER_NODE)
+            if rc != 0:
+                msg = "Error when stopping '{}'\n".format(self.name)
+                msg += stderr
+                _LOGGER.error(msg)
+                rc = 1
         if fork:
             if pipe:
                 pipe.send(msg)

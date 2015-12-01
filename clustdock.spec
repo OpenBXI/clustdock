@@ -166,6 +166,7 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 
 %doc
     %{target_doc_dir}/conf/clustdockd.conf
+    %{target_doc_dir}/conf/clustdock-hook.example
 # Changelog is automatically generated (see Makefile)
 # The %doc macro already contain a default path (usually /usr/doc/)
 # See:

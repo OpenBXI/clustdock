@@ -21,7 +21,8 @@ dist_sysconfig_DATA+=\
 					conf/clustdockd.conf
 
 nobase_dist_doc_DATA+=\
-					 conf/clustdockd.conf
+					 conf/clustdockd.conf\
+					 conf/clustdock-hook.example
 
 dist_bin_SCRIPTS+=\
 				 bin/clustdockd

@@ -28,7 +28,6 @@ class LibvirtNode(clustdock.VirtualNode):
         self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None
         self.img = img
         self.img_dir = img_dir
-        self.add_iface = kwargs.get('add_iface', None)
         self.mem = kwargs.get('mem', None)
         self.cpu = kwargs.get('cpu', None)
         if self.add_iface and not isinstance(self.add_iface, list):
@@ -82,6 +81,16 @@ class LibvirtNode(clustdock.VirtualNode):
         # Change xml content
         new_xml = self.build_xml(bxml_desc)
 
+        if self.before_start:
+            _LOGGER.debug("Trying to launch before start hook: %s", self.before_start)
+            rc, _, stderr = self.run_hook(self.before_start, clustdock.LIBVIRT_NODE)
+            if rc != 0:
+                msg = "Error when spawning '{}'\n".format(self.name)
+                msg += stderr
+                _LOGGER.error(msg)
+                pipe.send(msg)
+                sys.exit(1)
+        
         # Create new disk file for the node
         # Just save diffs from based image
         cmd = "qemu-img create -f qcow2 -b %s %s && chmod a+w %s" % (self.baseimg_path,
@@ -115,6 +124,16 @@ class LibvirtNode(clustdock.VirtualNode):
                     cvirt.defineXML(new_xml)
                     dom = cvirt.lookupByName(self.name)
                     dom.create()
+                    if self.after_start:
+                        _LOGGER.debug("Trying to launch after start hook: %s",
+                                      self.after_start)
+                        rc, _, stderr = self.run_hook(self.after_start,
+                                                      clustdock.LIBVIRT_NODE)
+                        if rc != 0:
+                            msg = "Error when spawning '{}'\n".format(self.name)
+                            msg += stderr
+                            _LOGGER.error(msg)
+                            spawned = 1
                 except libvirt.libvirtError as exc:
                     msg = "Domain '{}' alreay exists\n".format(self.name)
                     msg += str(exc)
@@ -152,6 +171,14 @@ class LibvirtNode(clustdock.VirtualNode):
                 msg += stderr
                 _LOGGER.error(msg)
                 rc = 1
+            else:
+                _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
+                rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
+                if rc != 0:
+                    msg = "Error when stopping '{}'\n".format(self.name)
+                    msg += stderr
+                    _LOGGER.error(msg)
+                    rc = 1
         if fork:
             if pipe:
                 pipe.send(msg)

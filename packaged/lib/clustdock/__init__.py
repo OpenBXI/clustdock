@@ -10,6 +10,7 @@
 '''
 import re
 import logging
+import subprocess as sp
 
 DOCKER_NODE = "docker"
 LIBVIRT_NODE = "libvirt"
@@ -29,6 +30,10 @@ class VirtualNode(object):
             self.host = 'localhost'
         self.clustername, self.idx = VirtualNode.split_name(self.name)
         self.unreachable = False
+        self.before_start = kwargs.get('before_start', None)
+        self.after_start = kwargs.get('after_start', None)
+        self.after_end = kwargs.get('after_end', None)
+        self.add_iface = kwargs.get('add_iface', None)
 
     @classmethod
     def split_name(cls, nodename):
@@ -36,6 +41,16 @@ class VirtualNode(object):
         clustername = res[0]
         idx = int(res[1])
         return (clustername, idx)
+
+    def run_hook(self, hook_file, vtype):
+        """Run hook-file"""
+        cmd = "%s %s %s %s" % (hook_file,
+                               self.name,
+                               vtype,
+                               self.host)
+        p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (stdout, stderr) = p.communicate()
+        return (p.returncode, stdout, stderr)
 
     def start(self, pipe):
         """Start virtual node"""

@@ -1,0 +1,25 @@
+#!/bin/bash
+# 
+# vim: set filetype=sh :
+#
+# Hook example file
+# 
+# In your profil, you can specify some hook files to execute:
+# * before spawning a node ('before_start' hook)
+# * after spawning a node ('after_start' hook)
+# * after stopping a node ('after_end' hook)
+#
+# - The file must be executable (+x attribute) 
+# 
+# Some variables are passed automaticaly to your script:
+# * $1: the node name
+# * $2: the node type (docker, libvirt)
+# * $3: the host on which the node is/was running
+#
+# Important: you have to redirect the stdout in a file if you want to get it.
+# 
+node_name=${1}
+vtype=${2}
+host=${3}
+
+
