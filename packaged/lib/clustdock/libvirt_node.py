@@ -155,31 +155,37 @@ class LibvirtNode(clustdock.VirtualNode):
             _LOGGER.error(msg)
             rc = 1
         else:
-            dom_list = cvirt.listAllDomains()
-            dom = cvirt.lookupByName(self.name)
-            if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
-                _LOGGER.debug('Destroying domain %s', self.name)
-                dom.destroy()
-            _LOGGER.debug('Undefine domain %s', self.name)
-            dom.undefine()  # --remove-all-storage
-            cmd = "rm -f %s" % self.img_path
-            _LOGGER.debug("Launching %s", cmd)
-            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
-            (_, stderr) = p.communicate()
-            if p.returncode != 0:
-                msg = "Error when removing disk for node '{}'\n".format(self.name)
-                msg += stderr
+            try:
+                dom = cvirt.lookupByName(self.name)
+            except libvirt.libvirtError as exc:
+                msg = "Couldn't find domain '{}'\n".format(self.name)
+                msg += str(exc)
                 _LOGGER.error(msg)
                 rc = 1
             else:
-                if self.after_end:
-                    _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
-                    rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
-                    if rc != 0:
-                        msg = "Error when stopping '{}'\n".format(self.name)
-                        msg += stderr
-                        _LOGGER.error(msg)
-                        rc = 1
+                if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
+                    _LOGGER.debug('Destroying domain %s', self.name)
+                    dom.destroy()
+                _LOGGER.debug('Undefine domain %s', self.name)
+                dom.undefine()  # --remove-all-storage
+                cmd = "rm -f %s" % self.img_path
+                _LOGGER.debug("Launching %s", cmd)
+                p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+                (_, stderr) = p.communicate()
+                if p.returncode != 0:
+                    msg = "Error when removing disk for node '{}'\n".format(self.name)
+                    msg += stderr
+                    _LOGGER.error(msg)
+                    rc = 1
+                else:
+                    if self.after_end:
+                        _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
+                        rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
+                        if rc != 0:
+                            msg = "Error when stopping '{}'\n".format(self.name)
+                            msg += stderr
+                            _LOGGER.error(msg)
+                            rc = 1
         if fork:
             if pipe:
                 pipe.send(msg)
