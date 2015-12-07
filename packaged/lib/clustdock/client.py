@@ -12,6 +12,9 @@ import logging
 import zmq
 import sys
 import msgpack
+from ClusterShell.NodeSet import NodeSet
+
+from clustdock import VirtualNode as vn
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,11 +38,17 @@ class ClustdockClient(object):
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
             # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
-            print("%-7s %-20s %-40s" % ("#Nodes", "Nodeset", "Hosts"))
-            print("-" * 77)
-            for item in liste:
-                # print("{0:<10s} {1:<7d} {2:<20s} {3:<40s}".format(*item))
-                print("{1:<7d} {2:<20s} {3:<40s}".format(*item))
+            print("%-10s %-7s %-20s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
+            print("-" * 88)
+            for host in liste:
+                print('\033[01m%s\033[0m' % host)
+                for cluster in liste[host]:
+                    print_nodes(liste[host][cluster][vn.STATUS_STARTED],
+                                '\033[32mstarted\033[0m')
+                    print_nodes(liste[host][cluster][vn.STATUS_UNKNOWN],
+                                'unknown')
+                    print_nodes(liste[host][cluster][vn.STATUS_UNREACHABLE],
+                                '\033[31munreachable\033[0m')
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
             return 2
@@ -97,3 +106,12 @@ class ClustdockClient(object):
             sys.stderr.write("Error when trying to contact server.\n")
             rc = 2
         return rc
+
+
+def print_nodes(nodes, status):
+    nb_nodes = len(nodes)
+    _LOGGER.debug("%d, %s, %s", nb_nodes, nodes, status)
+    if nb_nodes != 0:
+        nodelist = NodeSet.fromlist(nodes)
+        print("{0:<10s} {1:<7d} {2:<20s} {3:<11s}".format(
+              "", nb_nodes, str(nodelist), status))

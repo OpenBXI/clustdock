@@ -138,7 +138,7 @@ class DockerNode(clustdock.VirtualNode):
             if p.returncode == 0:
                 node_info = node_info.strip()
                 self.running = STATUS[node_info]
-                res = True
+                res = self.running
             else:
                 _LOGGER.debug("Container %s doesn't exist anymore.", self.name)
         except sp.CalledProcessError:

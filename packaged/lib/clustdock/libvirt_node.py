@@ -199,8 +199,8 @@ class LibvirtNode(clustdock.VirtualNode):
         try:
             cvirt = libvirt.open(self.uri)
             domain = cvirt.lookupByName(self.name)
-            res = True
             self.running = domain.state()[0] == libvirt.VIR_DOMAIN_RUNNING
+            res = self.running
         except libvirt.libvirtError:
             pass
         return res

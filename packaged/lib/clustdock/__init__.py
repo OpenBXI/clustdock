@@ -21,6 +21,10 @@ _LOGGER = logging.getLogger(__name__)
 class VirtualNode(object):
     '''Represents a virtual node'''
 
+    STATUS_STARTED = 1
+    STATUS_UNREACHABLE = 2
+    STATUS_UNKNOWN = 3
+
     def __init__(self, name, host=None, ip=None, **kwargs):
         self.name = name
         self.ip = ip if ip is not None else ''
@@ -28,6 +32,7 @@ class VirtualNode(object):
             self.host = host
         else:
             self.host = 'localhost'
+        self.status = kwargs.get('status', self.STATUS_UNKNOWN)
         self.clustername, self.idx = VirtualNode.split_name(self.name)
         self.unreachable = False
         self.before_start = kwargs.get('before_start', None)

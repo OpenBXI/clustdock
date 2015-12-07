@@ -112,10 +112,12 @@ class ClustdockWorker(object):
         self.req_sock.send('%d list' % self.worker_id)
         rep = self.req_sock.recv()
         clusters = msgpack.unpackb(rep, object_hook=decode_cluster)
+        hosts = {}
         for cluster in clusters:
-            mylist.append((cluster.name, len(cluster.nodes),
-                           cluster.nodeset, cluster.byhosts()))
-        self.rep_sock.send(msgpack.packb(mylist))
+            hosts.update(sort_nodes(cluster))
+            # mylist.append((cluster.name, len(cluster.nodes),
+            #               cluster.nodeset, cluster.byhosts()))
+        self.rep_sock.send(msgpack.packb(hosts))
 
     def get_ip(self, nodes, err):
         '''Get the ip of a node if possible'''
@@ -160,9 +162,14 @@ class ClustdockWorker(object):
         _LOGGER.debug(spawned_nodes)
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         errors_nodelist = str(NodeSet.fromlist(nodes_to_del))
-        # if len(nodes_to_del) != 0:
-        #    errors.append("Error: unable to spawn %s nodes" % errors_nodelist)
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
+
+        if len(spawned_nodes) != 0:
+            self.req_sock.send("%d started_nodes %s" % (
+                               self.worker_id,
+                               nodelist))
+            # Wait for reply
+            self.req_sock.recv()
 
         # Send the list of non-spawn nodes to the server for deletion
         if len(nodes_to_del) != 0:
@@ -237,14 +244,10 @@ class ClustdockServer(object):
         for cluster in self.clusters.values():
             for node in cluster.nodes.values():
                 if not node.is_alive():
-                    _LOGGER.info("Deleting node %s", node.name)
-                    del cluster.nodes[node.name]
+                    node.status = clustdock.VirtualNode.STATUS_UNREACHABLE
             _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name,
                                                               cluster.nb_nodes,
                                                               cluster.nodeset)
-            if len(cluster.nodes) == 0:
-                _LOGGER.info("Deleting cluster %s", cluster.name)
-                del self.clusters[cluster.name]
 
     def process_cmd(self, cmd, worker_id):
         '''Process cmd received by a worker'''
@@ -259,6 +262,9 @@ class ClustdockServer(object):
         elif cmd.startswith('del_nodes'):
             name = cmd.split()[1]
             self.del_nodes(name, worker_id)
+        elif cmd.startswith('started_nodes'):
+            nodelist = cmd.split()[1]
+            self.started_nodes(nodelist, worker_id)
         elif cmd.startswith('get_nodes'):
             nodelist = cmd.split()[1]
             nodes, res = self.get_nodes(nodelist)
@@ -337,6 +343,15 @@ class ClustdockServer(object):
                 del self.clusters[cluster.name]
         self.socket.send(msgpack.packb((nodes, res), default=encode_node))
 
+    def started_nodes(self, nodelist, worker_id):
+        '''Maj status of nodes'''
+        nodes, res = self.get_nodes(nodelist)
+        for node in nodes:
+            _LOGGER.debug("Maj status for node %s to STARTED", node.name)
+            cluster = self.clusters.get(node.clustername, None)
+            self.clusters[cluster.name].nodes[node.name].status = clustdock.VirtualNode.STATUS_STARTED
+        self.socket.send(msgpack.packb('OK'))
+
     def get_nodes(self, nodelist):
         """Return object representation of nodes in nodelist"""
         nodes = []
@@ -411,3 +426,21 @@ def decode_cluster(dico):
         return cluster
     else:
         return dico
+
+
+def sort_nodes(cluster):
+    '''Sort nodes for list command'''
+    hosts = {}
+
+    for nodename in cluster.nodes:
+        node = cluster.nodes[nodename]
+        if node.host not in hosts:
+            hosts[node.host] = {
+                cluster.name: {
+                    clustdock.VirtualNode.STATUS_STARTED: [],
+                    clustdock.VirtualNode.STATUS_UNREACHABLE: [],
+                    clustdock.VirtualNode.STATUS_UNKNOWN: []
+                }
+            }
+        hosts[node.host][cluster.name][node.status].append(node.name)
+    return hosts

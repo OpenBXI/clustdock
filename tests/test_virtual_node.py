@@ -162,6 +162,7 @@ class VirtualClusterTest(unittest.TestCase):
                     'name': 'cluster_name1',
                     'add_iface': None,
                     'unreachable': False,
+                    'status': clustdock.VirtualNode.STATUS_UNKNOWN,
                     'uri': None
                 }
             }
