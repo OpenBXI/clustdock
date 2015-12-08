@@ -53,12 +53,12 @@ class VirtualCluster(object):
             }
         }
         for key, val in cfg.iteritems():
-            if isinstance(key, int) and isinstance(val, dict):
+            if key == 'default':
+                conf['default'].update(val)
+            elif isinstance(val, dict):
                 rset = RangeSet(key)
                 for idx in rset:
                     conf[idx] = val
-            elif key == 'default':
-                conf['default'].update(val)
             else:
                 conf['default'][key] = val
         try:
@@ -70,6 +70,9 @@ class VirtualCluster(object):
     def add_node(self, idx, host):
         """Create new node on host and add it to the cluster"""
         self.cfg['default']['host'] = host
+        _LOGGER.debug(self.cfg)
+        _LOGGER.debug("At index %d", idx)
+        _LOGGER.debug(self.cfg.get(idx, {}))
         conf = self.cfg['default'].copy()
         conf.update(self.cfg.get(idx, {}))
         _LOGGER.debug(conf)
