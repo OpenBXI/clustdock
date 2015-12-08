@@ -114,7 +114,11 @@ class ClustdockWorker(object):
         clusters = msgpack.unpackb(rep, object_hook=decode_cluster)
         hosts = {}
         for cluster in clusters:
-            hosts.update(sort_nodes(cluster))
+            host_node = sort_nodes(cluster)
+            for host in host_node:
+                if host not in hosts:
+                    hosts[host] = {}
+                hosts[host].update(host_node[host])
             # mylist.append((cluster.name, len(cluster.nodes),
             #               cluster.nodeset, cluster.byhosts()))
         self.rep_sock.send(msgpack.packb(hosts))
