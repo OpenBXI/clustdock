@@ -12,7 +12,7 @@ import logging
 import re
 from ClusterShell.NodeSet import NodeSet
 from ClusterShell.RangeSet import RangeSet
-
+from ClusterShell.RangeSet import RangeSetParseError
 import clustdock
 import clustdock.docker_node as dock
 import clustdock.libvirt_node as lbv
@@ -56,7 +56,15 @@ class VirtualCluster(object):
             if key == 'default':
                 conf['default'].update(val)
             elif isinstance(val, dict):
-                rset = RangeSet(key)
+                if isinstance(key, int):
+                    rset = RangeSet.fromone(key)
+                else:
+                    try:
+                        rset = RangeSet(key)
+                    except RangeSetParseError as err:
+                        _LOGGER.warning("Error in configuration file:"
+                                        " %s. Ingnoring this part", err)
+                        continue
                 for idx in rset:
                     conf[idx] = val
             else:
@@ -70,9 +78,6 @@ class VirtualCluster(object):
     def add_node(self, idx, host):
         """Create new node on host and add it to the cluster"""
         self.cfg['default']['host'] = host
-        _LOGGER.debug(self.cfg)
-        _LOGGER.debug("At index %d", idx)
-        _LOGGER.debug(self.cfg.get(idx, {}))
         conf = self.cfg['default'].copy()
         conf.update(self.cfg.get(idx, {}))
         _LOGGER.debug(conf)

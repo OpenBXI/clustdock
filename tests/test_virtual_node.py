@@ -120,6 +120,38 @@ class VirtualClusterTest(unittest.TestCase):
         new_cluster = server.decode_cluster(cluster_desc)
         self.assertDictEqual(new_cluster.__dict__, expected)
 
+    def test_virtual_cluster_docker_encode_decode(self):
+        """Test Encoding/Decoding docker virtual cluster"""
+        profil = {
+            'vtype': "docker",
+            'img': "bullbxi/lltc",
+            'docker_opts': "--net=none -v /tmp/mnt_{name}:/tmp/lltc",
+            '0': {
+                'img': "bullbxi/slurm"
+            }
+        }
+        name = "cluster_name"
+        cluster = vc.VirtualCluster(name, 'fvt', profil)
+        expected = {
+            'cfg': {
+                'default': {
+                    'img': 'bullbxi/lltc',
+                    'vtype': 'docker',
+                    'docker_opts': "--net=none -v /tmp/mnt_cluster_name:/tmp/lltc"
+                },
+                0: {
+                    'img': "bullbxi/slurm"
+                }
+            },
+            'name': 'cluster_name',
+            'profil': 'fvt',
+            'nodes': {}
+        }
+        cluster_desc = server.encode_cluster(cluster)
+        self.assertDictEqual(expected, cluster_desc)
+        new_cluster = server.decode_cluster(cluster_desc)
+        self.assertDictEqual(new_cluster.__dict__, expected)
+
     def test_virtual_cluster_encode_decode_with_nodes(self):
         """Test Encoding/Decoding virtual cluster with nodes"""
         profil = {
