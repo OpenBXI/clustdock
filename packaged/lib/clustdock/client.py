@@ -38,8 +38,8 @@ class ClustdockClient(object):
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
             # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
-            print("%-10s %-7s %-20s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
-            print("-" * 88)
+            print("%-10s %-7s %-40s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
+            print("-" * 71)
             for host in liste:
                 print('\033[01m%s\033[0m' % host)
                 for cluster in liste[host]:
@@ -113,5 +113,5 @@ def print_nodes(nodes, status):
     _LOGGER.debug("%d, %s, %s", nb_nodes, nodes, status)
     if nb_nodes != 0:
         nodelist = NodeSet.fromlist(nodes)
-        print("{0:<10s} {1:<7d} {2:<20s} {3:<11s}".format(
+        print("{0:<10s} {1:<7d} {2:<40s} {3:<11s}".format(
               "", nb_nodes, str(nodelist), status))
