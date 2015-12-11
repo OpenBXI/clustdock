@@ -385,7 +385,7 @@ class ClustdockServer(object):
                     _LOGGER.debug("Cluster %s does not exist", clustername)
                     res += "Error: Cluster %s does not exist\n" % clustername
 
-            return (nodes, res)
+        return (nodes, res)
 
 
 def encode_node(obj):
