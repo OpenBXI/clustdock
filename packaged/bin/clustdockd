@@ -22,12 +22,16 @@ from multiprocessing import Process
 import clustdock.server
 
 CONFIG_FILE = "/etc/clustdockd.conf"
+DUMP_FILE = "/var/run/clustdockd.bin"
 THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
+
 
 def main(args):
     '''Main function'''
     _LOGGER.info("Starting server")
-    clserver = clustdock.server.ClustdockServer(args.port, args.cfg['profiles'])
+    clserver = clustdock.server.ClustdockServer(args.port,
+                                                args.cfg['profiles'],
+                                                args.dumpfile)
     # Empty socker buffers
     while clserver.socket.poll(10) != 0:
         clientid, _, message = clserver.socket.recv_multipart()
@@ -107,6 +111,10 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cfgfile",
                         default=CONFIG_FILE,
                         help="Configuration file. default: %(default)s")
+    # Dump file
+    parser.add_argument("-d", "--dumpfile",
+                        default=DUMP_FILE,
+                        help="Cluster dump file. default: %(default)s")
     # Logging level
     parser.add_argument('--loglevel', '-l', metavar='LEVEL',
         help='The log level to use', default=logging.WARNING)

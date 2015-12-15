@@ -23,7 +23,6 @@ import clustdock.docker_node
 import clustdock.libvirt_node
 import clustdock
 
-DUMP_FILE = "/var/run/clustdockd.bin"
 _LOGGER = logging.getLogger(__name__)
 IPC_SOCK = "ipc:///var/run/clustdock_workers.sock"
 
@@ -213,10 +212,11 @@ class ClustdockWorker(object):
 
 class ClustdockServer(object):
 
-    def __init__(self, port, profiles):
+    def __init__(self, port, profiles, dump_file):
         '''docstring'''
         self.port = port
         self.profiles = profiles
+        self.dump_file = dump_file
         self.ctx = zmq.Context()
         self.socket = self.ctx.socket(zmq.REP)
         _LOGGER.debug("Trying to bind server to %s", IPC_SOCK)
@@ -226,20 +226,21 @@ class ClustdockServer(object):
     def load_from_file(self):
         """Load cluster list from file"""
         try:
-            with open(DUMP_FILE, 'r') as dump_file:
+            with open(self.dump_file, 'r') as dump_file:
                 self.clusters = cPickle.load(dump_file)
         except IOError:
-            _LOGGER.debug("File %s doesn't exists. Skipping load from file.", DUMP_FILE)
+            _LOGGER.debug("File %s doesn't exists. Skipping load from file.", 
+                          self.dump_file)
         except (cPickle.PickleError, AttributeError):
             _LOGGER.debug("Error when loading clusters from file")
 
     def save_to_file(self):
         """Save cluster list to file"""
         try:
-            with open(DUMP_FILE, 'w') as dump_file:
+            with open(self.dump_file, 'w') as dump_file:
                 cPickle.dump(self.clusters, dump_file)
         except IOError:
-            _LOGGER.debug("Cannot write to file %s. Skipping", DUMP_FILE)
+            _LOGGER.debug("Cannot write to file %s. Skipping", self.dump_file)
         except cPickle.PickleError:
             _LOGGER.debug("Error when saving clusters to file")
 
