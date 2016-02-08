@@ -70,7 +70,7 @@ URL:	 	https://novahpc.frec.bull.fr
 Provides: %{name}
 #Conflicts:
 #TODO: What do you require
-Requires: zeromq3
+Requires: zeromq
 Requires: python-msgpack >= 0.4.1
 #
 #Requires: bxibase >= 3.2.0
