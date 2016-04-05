@@ -111,7 +111,7 @@ ClustDock unified solution Server provisionning libvirt/docker clusters on the f
 test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %setup
 
-%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir}
+%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir} %{?checkdoc}
 ###############################################################################
 # The current directory is the one main directory of the tar
 # Order of upgrade is:
