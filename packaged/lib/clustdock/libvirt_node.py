@@ -20,7 +20,53 @@ import clustdock
 _LOGGER = logging.getLogger(__name__)
 
 
+class LibvirtConnexion(object):
+
+    def __init__(self, host):
+        """Create new libvirt connexion on the specified node"""
+        self.host = host
+        self.uri = "qemu+ssh://%s/system" % self.host
+        try:
+            self.cnx = libvirt.open(self.uri)
+        except libvirt.libvirtError as exc:
+            msg = "Couldn't connect to host '{}'\n".format(self.host)
+            msg += str(exc)
+            _LOGGER.error(msg)
+            self.cnx = None
+
+    def is_ok(self):
+        """Check if the connexion is ok"""
+        return self.cnx is not None
+
+    def listvms(self, all=True):
+        """List all vms on the host"""
+        vms = []
+        try:
+            domains = self.cnx.listAllDomains()
+            for domain in domains:
+                if not all:
+                    if domain.state()[0] != libvirt.VIR_DOMAIN_RUNNING:
+                        continue
+                node = LibvirtNode.from_domain(domain, self.host)
+                vms.append(node)
+        except libvirt.libvirtError:
+            pass
+        return vms
+
+
 class LibvirtNode(clustdock.VirtualNode):
+
+    @classmethod
+    def from_domain(cls, domain, host):
+        """Create LibvirtNode from libvirt domain"""
+        xmldom = domain.XMLDesc()
+        tree = etree.fromstring(xmldom)
+        source_path = get_source_path(tree)
+        source_dir_path = os.path.dirname(source_path)
+        name = domain.name()
+        status = domain.state()[0]
+        node = LibvirtNode(name, source_path, source_dir_path, host=host, status=status)
+        return node
 
     def __init__(self, name, img, img_dir, **kwargs):
         """Instanciate a libvirt node"""
@@ -30,6 +76,7 @@ class LibvirtNode(clustdock.VirtualNode):
         self.img_dir = img_dir
         self.mem = kwargs.get('mem', None)
         self.cpu = kwargs.get('cpu', None)
+        self.status = kwargs.get('status', None)
         if self.add_iface and not isinstance(self.add_iface, list):
             self.add_iface = [self.add_iface]
 
@@ -298,3 +345,9 @@ class LibvirtNode(clustdock.VirtualNode):
         cpu = tree.xpath("/domain/vcpu")[0]
         cpu.text = str(self.cpu)
         return tree
+
+
+def get_source_path(xmltree):
+    """Get source image path from xml description"""
+    path = xmltree.xpath("//devices/disk/source/@file")[0]
+    return path

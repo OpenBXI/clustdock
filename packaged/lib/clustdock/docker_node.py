@@ -11,13 +11,23 @@
 import logging
 import sys
 import re
+import os
 import subprocess as sp
 from ipaddr import IPv4Network, AddressValueError
 import clustdock
 
 _LOGGER = logging.getLogger(__name__)
 
-STATUS = {'true': True, 'false': False}
+# STATUS = {'true': True, 'false': False}
+
+STATUS = {
+    'created': 0,
+    'up': 1,
+    'paused': 3,
+    'restarting': 4,
+    'exited': 5,
+    'crashed': 6,
+}
 
 
 class AddIfaceException(Exception):
@@ -25,6 +35,65 @@ class AddIfaceException(Exception):
     def __init__(self, msg, iface):
         super(AddIfaceException, self).__init__(msg)
         self.iface = iface
+
+
+class DockerConnexion(object):
+
+    def __init__(self, host, docker_port=None):
+        """Create new docker connexion on the specified node"""
+        self.host = host
+        self.docker_port = docker_port
+        self.cnx = None
+        # self.docker_uri = "NO_PROXY=%s DOCKER_HOST=tcp://%s:4243" % (
+        #    self.host, self.host) if self.host != 'localhost' else ''
+        docker_env = os.environ.copy()
+        if self.docker_port is not None:
+            docker_host = "tcp://%s:%d" % (self.host, self.docker_port)
+            _LOGGER.debug("setting DOCKER_HOST environment variable to: %s", docker_host)
+            docker_env["DOCKER_HOST"] = docker_host
+        docker_env["NO_PROXY"] = "%s,%s" % (self.host, docker_env["NO_PROXY"])
+        self.docker_env = docker_env
+        cmd = "docker info"
+        try:
+            p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, env=docker_env, shell=True)
+            (docks, _) = p.communicate()
+            if p.returncode == 0:
+                _LOGGER.info("valid docker connexion on host '%s'", self.host)
+                self.cnx = True
+        except sp.CalledProcessError:
+            _LOGGER.error("No docker connexion on host '%s'", self.host)
+
+    def is_ok(self):
+        """Check if the connexion is ok"""
+        return self.cnx is not None
+
+    def list_containers(self, all=True):
+        """List all containers on the host"""
+        containers = []
+        cmd_param = '-f status=running'
+        if all:
+            cmd_param = "--all"
+        out_format = '--format "{{.Image}};{{.Names}};{{.Status}}"'
+        cmd = 'docker ps %s %s' % (cmd_param, out_format)
+        _LOGGER.debug("Launching command: %s", cmd)
+        try:
+            p = sp.Popen(cmd, stdout=sp.PIPE, shell=True, env=self.docker_env)
+            (docks, _) = p.communicate()
+            if p.returncode == 0:
+                docks = docks.strip()
+        except sp.CalledProcessError:
+            _LOGGER.error("Error when retrieving list of docker containers on %s",
+                          self.host)
+            return containers
+
+        docks = docks.split('\n')
+        for dock in docks:
+            (cimg, name, status) = dock.split(';')
+            _LOGGER.debug("container: %s, %s, status: %s", cimg, name, status)
+            status = status.split()[0].lower()
+            contner = DockerNode(name, cimg, status=STATUS[status])
+            containers.append(contner)
+        return containers
 
 
 class DockerNode(clustdock.VirtualNode):
@@ -39,6 +108,7 @@ class DockerNode(clustdock.VirtualNode):
         self.docker_opts = kwargs.get('docker_opts', '')
         if self.add_iface and len(self.add_iface) == 3:
             self.add_iface = [self.add_iface]
+        self.status = kwargs.get('status', STATUS['created'])
 
     def start(self, pipe):
         '''Start a docker container'''

@@ -23,25 +23,44 @@ import clustdock.server
 
 CONFIG_FILE = "/etc/clustdockd.conf"
 DUMP_FILE = "/var/run/clustdockd.bin"
-THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
+# THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
+THREAD_SOCK = "ipc:///tmp/clustdock_dealer.sock"
 
 
 def main(args):
     '''Main function'''
     _LOGGER.info("Starting server")
-    clserver = clustdock.server.ClustdockServer(args.port,
-                                                args.cfg['profiles'],
-                                                args.dumpfile)
+    try:
+        profiles = args.cfg['profiles']
+    except KeyError:
+        _LOGGER.error("No 'profiles' section found in %s configuration file",
+                      args.cfgfile)
+        sys.exit(1)
+    try:
+        hosts = args.cfg['hosts']
+    except KeyError:
+        _LOGGER.error("No 'hosts' value found in %s configuration file",
+                      args.cfgfile)
+        sys.exit(1)
+    
+    hostlist = clustdock.server.extract_hosts(args.cfg['hosts'])
+    _LOGGER.debug("Managed hosts: %s", hostlist)
+    
+    # clserver = clustdock.server.ClustdockServer(args.port,
+    #                                             args.cfg['profiles'],
+    #                                             args.dumpfile,
+    #                                             args.cfg['hosts'])
+    
     # Empty socker buffers
-    while clserver.socket.poll(10) != 0:
-        clientid, _, message = clserver.socket.recv_multipart()
-        print("Recieved control command: %s" % message)
-        clserver.socket.send("FAIL")
+    # while clserver.socket.poll(10) != 0:
+    #     clientid, _, message = clserver.socket.recv_multipart()
+    #     print("Recieved control command: %s" % message)
+    #     clserver.socket.send("FAIL")
 
     # Initial inventory
-    clserver.load_from_file()
-    clserver.inventory()
-    last_exec = time.time()
+    # clserver.load_from_file()
+    # clserver.inventory()
+    # last_exec = time.time()
 
     fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
     signalfd.sigprocmask(signalfd.SIG_BLOCK, [signal.SIGTERM])
@@ -57,7 +76,11 @@ def main(args):
     workers = []
     # Starting 5 workers
     for idx in xrange(0, 5):
-        worker = clustdock.server.ClustdockWorker(THREAD_SOCK, idx)
+        worker = clustdock.server.ClustdockWorker(THREAD_SOCK,
+                                                  idx,
+                                                  args.cfg['profiles'],
+                                                  hostlist,
+                                                  args.cfg.get('docker_port', None))
         _LOGGER.debug("Starting worker %d", idx)
         proc = Process(target=worker.__class__.start,
                        args=(worker, args.loglevel, args.logfile))
@@ -68,38 +91,38 @@ def main(args):
     _LOGGER.debug("Entering main loop")
     with os.fdopen(fd) as fo:
         poller = zmq.Poller()
-        poller.register(clserver.socket, zmq.POLLIN)
+        # poller.register(clserver.socket, zmq.POLLIN)
         poller.register(fo, zmq.POLLIN)
         while True:
             try:
                 items = dict(poller.poll(1000))
-                if clserver.socket in items:
-                    worker_id, cmd = clserver.socket.recv().split(None, 1)
-                    _LOGGER.debug("cmd received from worker %s: %s",
-                                  worker_id,
-                                  cmd)
-                    clserver.process_cmd(cmd, worker_id)
+                # if clserver.socket in items:
+                #     worker_id, cmd = clserver.socket.recv().split(None, 1)
+                #     _LOGGER.debug("cmd received from worker %s: %s",
+                #                   worker_id,
+                #                   cmd)
+                #     clserver.process_cmd(cmd, worker_id)
 
-                if last_exec + 60 <= time.time():
+                # if last_exec + 60 <= time.time():
 
-                    clserver.inventory()
-                    last_exec = time.time()
+                #     # clserver.inventory()
+                #     last_exec = time.time()
 
                 if fo.fileno() in items:
                     _LOGGER.debug("Signal received")
-                    clserver.save_to_file()
+                    # clserver.save_to_file()
                     break
 
             except KeyboardInterrupt:
-                clserver.save_to_file()
+                # clserver.save_to_file()
                 break
 
     _LOGGER.info("Terminating workers")
     for worker in workers:
         worker.terminate()
 
-    clserver.socket.close()
-    clserver.ctx.destroy()
+    # clserver.socket.close()
+    # clserver.ctx.destroy()
     _LOGGER.info("Exiting server")
 
 

@@ -15,23 +15,30 @@ import msgpack
 import signalfd
 import signal
 import os
+import random
 import multiprocessing as mp
 from ClusterShell.NodeSet import NodeSet
 from ClusterShell.NodeSet import NodeSetParseError
 import clustdock.virtual_cluster as vc
-import clustdock.docker_node
-import clustdock.libvirt_node
+import clustdock.docker_node as dnode
+import clustdock.libvirt_node as lnode
 import clustdock
 
 _LOGGER = logging.getLogger(__name__)
-IPC_SOCK = "ipc:///var/run/clustdock_workers.sock"
+# IPC_SOCK = "ipc:///var/run/clustdock_workers.sock"
+IPC_SOCK = "ipc:///tmp/clustdock_workers.sock"
 
 
 class ClustdockWorker(object):
 
-    def __init__(self, url_server, worker_id):
+    def __init__(self, url_server, worker_id, profiles, hostlist, docker_port):
         self.worker_id = worker_id
         self.url_server = url_server
+        self.profiles = profiles
+        self.hostlist = hostlist
+        self.libvirt_cnx = {}
+        self.docker_cnx = {}
+        self.docker_port = docker_port
 
     def init_sockets(self):
         """Initialize zmq sockets"""
@@ -83,7 +90,8 @@ class ClustdockWorker(object):
     def process_cmd(self, cmd):
         '''Process recieved cmd'''
         if cmd == 'list':
-            self.list_clusters()
+            # self.list_clusters()
+            self.list_nodes()
         elif cmd.startswith('spawn'):
             self.req_sock.send('%d %s' % (self.worker_id, cmd))
             rep = self.req_sock.recv()
@@ -105,21 +113,56 @@ class ClustdockWorker(object):
             _LOGGER.debug("Ignoring cmd %s", cmd)
             self.rep_sock.send(msgpack.packb('FAIL'))
 
-    def list_clusters(self):
-        '''List all clusters'''
-        mylist = []
-        self.req_sock.send('%d list' % self.worker_id)
-        rep = self.req_sock.recv()
-        clusters = msgpack.unpackb(rep, object_hook=decode_cluster)
+    def _get_libvirt_cnx(self, host):
+        """return libvirt connexion object"""
+        cnx = self.libvirt_cnx.get(host, None)
+        if cnx is None:
+            cnx = lnode.LibvirtConnexion(host)
+            self.libvirt_cnx[host] = cnx
+        return cnx
+
+    def _get_docker_cnx(self, host):
+        """return docker connexion object"""
+        cnx = self.docker_cnx.get(host, None)
+        if cnx is None:
+            cnx = dnode.DockerConnexion(host, self.docker_port)
+            self.docker_cnx[host] = cnx
+        return cnx
+
+    # def list_clusters(self):
+    #     '''List all clusters'''
+    #     mylist = []
+    #     self.req_sock.send('%d list' % self.worker_id)
+    #     rep = self.req_sock.recv()
+    #     clusters = msgpack.unpackb(rep, object_hook=decode_cluster)
+    #     hosts = {}
+    #     for cluster in clusters:
+    #         host_node = sort_nodes(cluster)
+    #         for host in host_node:
+    #             if host not in hosts:
+    #                 hosts[host] = {}
+    #             hosts[host].update(host_node[host])
+    #         # mylist.append((cluster.name, len(cluster.nodes),
+    #         #               cluster.nodeset, cluster.byhosts()))
+    #     self.rep_sock.send(msgpack.packb(hosts))
+    
+    def list_nodes(self):
+        '''List all nodes on managed hosts'''
         hosts = {}
-        for cluster in clusters:
-            host_node = sort_nodes(cluster)
-            for host in host_node:
-                if host not in hosts:
-                    hosts[host] = {}
-                hosts[host].update(host_node[host])
-            # mylist.append((cluster.name, len(cluster.nodes),
-            #               cluster.nodeset, cluster.byhosts()))
+        for host in self.hostlist:
+            libvirt_cnx = self._get_libvirt_cnx(host)
+            if not libvirt_cnx.is_ok():
+                _LOGGER.warning("No libvirt connexion to host %s. Skipping", host)
+                continue
+            vms = libvirt_cnx.listvms()
+            hosts[host] = [vm.__dict__ for vm in vms]
+            docker_cnx = self._get_docker_cnx(host)
+            if not docker_cnx.is_ok():
+                _LOGGER.warning("No docker connexion to host %s. Skipping", host)
+                continue
+            containers = docker_cnx.list_containers()
+            hosts[host].extend([dock.__dict__ for dock in containers])
+
         self.rep_sock.send(msgpack.packb(hosts))
 
     def get_ip(self, nodes, err):
@@ -212,7 +255,7 @@ class ClustdockWorker(object):
 
 class ClustdockServer(object):
 
-    def __init__(self, port, profiles, dump_file):
+    def __init__(self, port, profiles, dump_file, hosts):
         '''docstring'''
         self.port = port
         self.profiles = profiles
@@ -221,38 +264,17 @@ class ClustdockServer(object):
         self.socket = self.ctx.socket(zmq.REP)
         _LOGGER.debug("Trying to bind server to %s", IPC_SOCK)
         self.socket.bind(IPC_SOCK)
-        self.clusters = dict()
+        self.hosts = extract_hosts(hosts)
 
-    def load_from_file(self):
-        """Load cluster list from file"""
-        try:
-            with open(self.dump_file, 'r') as dump_file:
-                self.clusters = cPickle.load(dump_file)
-        except IOError:
-            _LOGGER.debug("File %s doesn't exists. Skipping load from file.", 
-                          self.dump_file)
-        except (cPickle.PickleError, AttributeError):
-            _LOGGER.debug("Error when loading clusters from file")
-
-    def save_to_file(self):
-        """Save cluster list to file"""
-        try:
-            with open(self.dump_file, 'w') as dump_file:
-                cPickle.dump(self.clusters, dump_file)
-        except IOError:
-            _LOGGER.debug("Cannot write to file %s. Skipping", self.dump_file)
-        except cPickle.PickleError:
-            _LOGGER.debug("Error when saving clusters to file")
-
-    def inventory(self):
-        _LOGGER.info("Inventory of clusters")
-        for cluster in self.clusters.values():
-            for node in cluster.nodes.values():
-                if not node.is_alive():
-                    node.status = clustdock.VirtualNode.STATUS_UNREACHABLE
-            _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name,
-                                                              cluster.nb_nodes,
-                                                              cluster.nodeset)
+    # def inventory(self):
+    #     _LOGGER.info("Inventory of clusters")
+    #     for cluster in self.clusters.values():
+    #         for node in cluster.nodes.values():
+    #             if not node.is_alive():
+    #                 node.status = clustdock.VirtualNode.STATUS_UNREACHABLE
+    #         _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name,
+    #                                                           cluster.nb_nodes,
+    #                                                           cluster.nodeset)
 
     def process_cmd(self, cmd, worker_id):
         '''Process cmd received by a worker'''
@@ -262,7 +284,7 @@ class ClustdockServer(object):
         elif cmd.startswith('spawn'):
             (_, profil, name, nb_nodes, host) = cmd.split()
             if host == 'None':
-                host = None
+                host = _choose_host(self.hosts)
             self.create_nodes(profil, name, int(nb_nodes), host, worker_id)
         elif cmd.startswith('del_nodes'):
             name = cmd.split()[1]
@@ -288,6 +310,11 @@ class ClustdockServer(object):
         # 5: return the list of nodes to the client
         err = ""
         nodes = []
+        if host is None:
+            err = "Error: No host available\n"
+            _LOGGER.error(err)
+            self.socket.send(msgpack.packb((nodes, err)))
+            return
         if not vc.VirtualCluster.valid_clustername(name):
             err = "Error: clustername '{}' is not a valid name\n".format(name)
             _LOGGER.error(err)
@@ -387,6 +414,26 @@ class ClustdockServer(object):
                     res += "Error: Cluster %s does not exist\n" % clustername
 
         return (nodes, res)
+
+
+def extract_hosts(hosts):
+    """Extracting list of managed hosts from nodeset"""
+    nodeset = NodeSet()
+    if isinstance(hosts, list) or isinstance(hosts, tuple):
+        nodeset = NodeSet.fromlist(hosts)
+    else:
+        nodeset = NodeSet(hosts)
+    return nodeset
+
+
+def _choose_host(hosts):
+    """Choose random host in hostlist"""
+    host = None
+    try:
+        host = random.choice(hosts)
+    except (TypeError, IndexError):
+        _LOGGER.error("Empty hostlist given: %s", hosts)
+    return host
 
 
 def encode_node(obj):

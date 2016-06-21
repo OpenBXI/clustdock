@@ -18,6 +18,16 @@ from clustdock import VirtualNode as vn
 
 _LOGGER = logging.getLogger(__name__)
 
+STATUS = {
+    'created': 0,
+    'running': 1,
+    'paused': 3,
+    'in shutdown': 4,
+    'stopped': 5,
+    'crashed': 6,
+}
+STATUS_UNKNOWN = 'unknown'
+
 
 class ClustdockClient(object):
     '''Class representing the client part of the docker/libvirt architecture'''
@@ -40,15 +50,21 @@ class ClustdockClient(object):
             # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
             print("%-10s %-7s %-40s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
             print("-" * 71)
+            liste = sort_nodes(liste)
             for host in liste:
                 print('\033[01m%s\033[0m' % host)
-                for cluster in liste[host]:
-                    print_nodes(liste[host][cluster][vn.STATUS_STARTED],
-                                '\033[32mstarted\033[0m')
-                    print_nodes(liste[host][cluster][vn.STATUS_UNKNOWN],
-                                'unknown')
-                    print_nodes(liste[host][cluster][vn.STATUS_UNREACHABLE],
-                                '\033[31munreachable\033[0m')
+                print_nodes(liste[host][STATUS['running']],
+                            '\033[32mrunning\033[0m')
+                print_nodes(liste[host][STATUS['stopped']],
+                            '\033[31mstopped\033[0m')
+                print_nodes(liste[host][STATUS['paused']],
+                            '\033[33mpaused\033[0m')
+                print_nodes(liste[host][STATUS['in shutdown']],
+                            '\033[34min shutdown\033[0m')
+                print_nodes(liste[host][STATUS['crashed']],
+                            '\033[1;33mcrashed\033[0m')
+                print_nodes(liste[host][STATUS['created']],
+                            'unknown')
         except zmq.error.ZMQError:
             sys.stderr.write("Error when trying to contact server.\n")
             return 2
@@ -108,10 +124,25 @@ class ClustdockClient(object):
         return rc
 
 
+def sort_nodes(nodelist):
+    '''Sort nodes for list command'''
+    hosts = {}
+    for host in nodelist:
+        hosts[host] = {}
+        for status in STATUS.values():
+            hosts[host][status] = []
+        for node in nodelist[host]:
+            hosts[host][node['status']].append(node['name'])
+    _LOGGER.debug(hosts)
+    return hosts
+
+
 def print_nodes(nodes, status):
+    """Print nodelist on standart output"""
     nb_nodes = len(nodes)
-    _LOGGER.debug("%d, %s, %s", nb_nodes, nodes, status)
-    if nb_nodes != 0:
-        nodelist = NodeSet.fromlist(nodes)
+    if nb_nodes == 0:
+        return
+    nodelist = NodeSet.fromlist(nodes)
+    for subset in nodelist.contiguous():
         print("{0:<10s} {1:<7d} {2:<40s} {3:<11s}".format(
-              "", nb_nodes, str(nodelist), status))
+              "", len(subset), str(subset), status))

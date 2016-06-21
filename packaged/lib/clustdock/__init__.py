@@ -42,9 +42,13 @@ class VirtualNode(object):
 
     @classmethod
     def split_name(cls, nodename):
-        res = re.search(r'^([a-z]+[a-z-_]+)(\d+)$', nodename).groups()
-        clustername = res[0]
-        idx = int(res[1])
+        res = re.search(r'^([a-z]+[a-z-_]+)(\d+)$', nodename)
+        clustername = nodename
+        idx = None
+        if res is not None:
+            grp = res.groups()
+            clustername = grp[0]
+            idx = int(grp[1])
         return (clustername, idx)
 
     def run_hook(self, hook_file, vtype):
