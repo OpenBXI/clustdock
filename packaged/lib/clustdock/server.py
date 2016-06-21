@@ -18,6 +18,8 @@ import os
 import random
 import multiprocessing as mp
 from ClusterShell.NodeSet import NodeSet
+from ClusterShell.NodeSet import NodeSetBase
+from ClusterShell.RangeSet import RangeSet
 from ClusterShell.NodeSet import NodeSetParseError
 import clustdock.virtual_cluster as vc
 import clustdock.docker_node as dnode
@@ -45,7 +47,6 @@ class ClustdockWorker(object):
         _LOGGER.info("Initializing sockets for worker %d", self.worker_id)
         self.ctx = zmq.Context()
         self.rep_sock = self.ctx.socket(zmq.REP)
-        self.req_sock = self.ctx.socket(zmq.REQ)
         _LOGGER.debug("trying to connect worker %d to ThreadDevice at %s",
                       self.worker_id,
                       self.url_server)
@@ -53,7 +54,6 @@ class ClustdockWorker(object):
         _LOGGER.debug("trying to connect worker %d to server at %s",
                       self.worker_id,
                       IPC_SOCK)
-        self.req_sock.connect(IPC_SOCK)
 
     def start(self, loglevel, logfile):
         """Start to work !"""
@@ -77,6 +77,7 @@ class ClustdockWorker(object):
                         cmd = self.rep_sock.recv()
                         _LOGGER.debug("cmd received from client: '%s'", cmd)
                         self.process_cmd(cmd)
+                        _LOGGER.debug("cmd '%s' processed", cmd)
                     if fo.fileno() in items:
                         _LOGGER.debug("Signal received on worker %d", self.worker_id)
                         break
@@ -85,18 +86,19 @@ class ClustdockWorker(object):
                     break
         _LOGGER.debug("Stopping worker %d", self.worker_id)
         self.rep_sock.close()
-        self.req_sock.close()
 
     def process_cmd(self, cmd):
         '''Process recieved cmd'''
         if cmd == 'list':
-            # self.list_clusters()
-            self.list_nodes()
+            hosts = self.list_nodes()
+            self.rep_sock.send(msgpack.packb(hosts))
         elif cmd.startswith('spawn'):
-            self.req_sock.send('%d %s' % (self.worker_id, cmd))
-            rep = self.req_sock.recv()
-            (nodes, res) = msgpack.unpackb(rep, object_hook=decode_node)
-            self.spawn_nodes(nodes, res)
+            (_, profil, name, nb_nodes, host) = cmd.split()
+            if host == 'None':
+                host = _choose_host(self.hostlist)
+            nodes = self.select_nodes(profil, name, int(nb_nodes), host)
+            if len(nodes) != 0:
+                self.spawn_nodes(nodes)
         elif cmd.startswith('stop_nodes'):
             nodelist = cmd.split()[1]
             self.req_sock.send('%d del_nodes %s' % (self.worker_id, nodelist))
@@ -129,27 +131,12 @@ class ClustdockWorker(object):
             self.docker_cnx[host] = cnx
         return cnx
 
-    # def list_clusters(self):
-    #     '''List all clusters'''
-    #     mylist = []
-    #     self.req_sock.send('%d list' % self.worker_id)
-    #     rep = self.req_sock.recv()
-    #     clusters = msgpack.unpackb(rep, object_hook=decode_cluster)
-    #     hosts = {}
-    #     for cluster in clusters:
-    #         host_node = sort_nodes(cluster)
-    #         for host in host_node:
-    #             if host not in hosts:
-    #                 hosts[host] = {}
-    #             hosts[host].update(host_node[host])
-    #         # mylist.append((cluster.name, len(cluster.nodes),
-    #         #               cluster.nodeset, cluster.byhosts()))
-    #     self.rep_sock.send(msgpack.packb(hosts))
-    
-    def list_nodes(self):
-        '''List all nodes on managed hosts'''
+    def list_nodes(self, hostlist=None, byhost=True):
+        '''List all nodes on managed hosts or specified hostlist'''
         hosts = {}
-        for host in self.hostlist:
+        if hostlist is None:
+            hostlist = self.hostlist
+        for host in hostlist:
             libvirt_cnx = self._get_libvirt_cnx(host)
             if not libvirt_cnx.is_ok():
                 _LOGGER.warning("No libvirt connexion to host %s. Skipping", host)
@@ -162,8 +149,12 @@ class ClustdockWorker(object):
                 continue
             containers = docker_cnx.list_containers()
             hosts[host].extend([dock.__dict__ for dock in containers])
-
-        self.rep_sock.send(msgpack.packb(hosts))
+        if not byhost:
+            nodes = []
+            for hostnodes in hosts.itervalues():
+                nodes.extend(hostnodes)
+            return nodes
+        return hosts
 
     def get_ip(self, nodes, err):
         '''Get the ip of a node if possible'''
@@ -178,12 +169,66 @@ class ClustdockWorker(object):
             else:
                 errors.append("Error: Unable to find IP for node %s\n" % node.name)
         self.rep_sock.send(msgpack.packb((res, errors)))
+    
+    def select_nodes(self, profil, name, nb_nodes, host):
+        '''Select nodes to spawn'''
+        # 1: recover available nodelist
+        # 2: select nb_nodes among availables nodes
+        # 3: return the list of nodes
+        err = ""
+        nodes = []
+        if host is None:
+            err = "Error: No host available\n"
+            _LOGGER.error(err)
+            self.rep_sock.send(msgpack.packb((nodes, err)))
+            return nodes
+        if not vc.VirtualCluster.valid_clustername(name):
+            err = "Error: clustername '{}' is not a valid name\n".format(name)
+            _LOGGER.error(err)
+            self.rep_sock.send(msgpack.packb((nodes, err)))
+            return nodes
+        if profil not in self.profiles:
+            err = "Error: Profil '{}' not found in configuration file\n".format(profil)
+            _LOGGER.error(err)
+            self.rep_sock.send(msgpack.packb((nodes, err)))
+            return nodes
 
-    def spawn_nodes(self, nodes, err):
+        nodelist = self.list_nodes(byhost=False)
+        nodeset = NodeSet.fromlist([node['name'] for node in nodelist])
+        idx_min = 0
+        idx_max = nb_nodes - 1
+        base_range = RangeSet("%d-%d" % (idx_min, idx_max))
+        base_nodeset = NodeSetBase(name + '%s', base_range)
+        ndset_inter = nodeset.intersection(base_nodeset)
+        while len(ndset_inter) != 0:
+            indexes = [clustdock.VirtualNode.split_name(node)[1] for node in ndset_inter]
+            for idx in indexes:
+                _LOGGER.debug("Removing %d from rangeset %s", idx, base_range)
+                base_range.remove(idx)
+            base_nodeset.difference_update(ndset_inter)
+            _LOGGER.debug("Nodeset becomes '%s' after removing", base_nodeset)
+            idx_min = max(indexes + list(base_range)) + 1
+            idx_max = idx_min + max([len(indexes), nb_nodes - len(base_range)])
+            base_range.add_range(idx_min, idx_max)
+            _LOGGER.debug("New rangeset: %s", base_range)
+            base_nodeset.update(NodeSetBase(name + '%s',
+                                RangeSet.fromlist([range(idx_min, idx_max)])))
+            _LOGGER.debug("New nodeset: %s", base_nodeset)
+            ndset_inter = nodeset.intersection(base_nodeset)
+
+        final_range = base_range
+        _LOGGER.debug("final rangeset/nodeset: %s / %s", base_range, base_nodeset)
+
+        cluster = vc.VirtualCluster(name, profil, self.profiles[profil])
+        nodes = []
+        for idx in final_range:
+            node = cluster.add_node(idx, host)
+            nodes.append(node)
+        return nodes
+
+    def spawn_nodes(self, nodes):
         '''Spawn some nodes'''
         errors = []
-        if err != "":
-            errors.append(err)
         processes = []
         for node in nodes:
             to_child, to_self = mp.Pipe()
@@ -209,21 +254,6 @@ class ClustdockWorker(object):
         nodelist = str(NodeSet.fromlist(spawned_nodes))
         errors_nodelist = str(NodeSet.fromlist(nodes_to_del))
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
-
-        if len(spawned_nodes) != 0:
-            self.req_sock.send("%d started_nodes %s" % (
-                               self.worker_id,
-                               nodelist))
-            # Wait for reply
-            self.req_sock.recv()
-
-        # Send the list of non-spawn nodes to the server for deletion
-        if len(nodes_to_del) != 0:
-            self.req_sock.send("%d del_nodes %s" % (
-                               self.worker_id,
-                               errors_nodelist))
-            # Wait for reply
-            self.req_sock.recv()
 
     def stop_nodes(self, nodes, err):
         '''Stopping nodes'''
@@ -253,6 +283,21 @@ class ClustdockWorker(object):
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class ClustdockServer(object):
 
     def __init__(self, port, profiles, dump_file, hosts):
@@ -265,16 +310,6 @@ class ClustdockServer(object):
         _LOGGER.debug("Trying to bind server to %s", IPC_SOCK)
         self.socket.bind(IPC_SOCK)
         self.hosts = extract_hosts(hosts)
-
-    # def inventory(self):
-    #     _LOGGER.info("Inventory of clusters")
-    #     for cluster in self.clusters.values():
-    #         for node in cluster.nodes.values():
-    #             if not node.is_alive():
-    #                 node.status = clustdock.VirtualNode.STATUS_UNREACHABLE
-    #         _LOGGER.info("Cluster %s, #Nodes: %d, Nodes: %s", cluster.name,
-    #                                                           cluster.nb_nodes,
-    #                                                           cluster.nodeset)
 
     def process_cmd(self, cmd, worker_id):
         '''Process cmd received by a worker'''

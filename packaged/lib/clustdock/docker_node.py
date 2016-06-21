@@ -90,8 +90,8 @@ class DockerConnexion(object):
         for dock in docks:
             (cimg, name, status) = dock.split(';')
             _LOGGER.debug("container: %s, %s, status: %s", cimg, name, status)
-            status = status.split()[0].lower()
-            contner = DockerNode(name, cimg, status=STATUS[status])
+            status = get_docker_status(status)
+            contner = DockerNode(name, cimg, status=status)
             containers.append(contner)
         return containers
 
@@ -302,3 +302,21 @@ class DockerNode(clustdock.VirtualNode):
             if p.returncode != 0:
                 _LOGGER.error(stderr)
                 raise AddIfaceException(stderr, br)
+
+
+def get_docker_status(status_str):
+    """Retrieve docker status from status string"""
+    status_str = status_str.lower()
+    status = STATUS['created']
+
+    if 'paused' in status_str:
+        status = STATUS['paused']
+    elif 'exited' in status_str:
+        status = STATUS['exited']
+    elif 'restarting' in status_str:
+        status = STATUS['restarting']
+    elif 'crashed' in status_str:
+        status = STATUS['crashed']
+    elif 'up' in status_str:
+        status = STATUS['up']
+    return status
