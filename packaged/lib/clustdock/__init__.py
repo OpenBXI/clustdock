@@ -49,6 +49,7 @@ class VirtualNode(object):
             grp = res.groups()
             clustername = grp[0]
             idx = int(grp[1])
+        res = re.search(r'^([a-z]+[a-z-_]+)$', clustername).groups()
         return (clustername, idx)
 
     def run_hook(self, hook_file, vtype):

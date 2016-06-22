@@ -76,7 +76,7 @@ class LibvirtNode(clustdock.VirtualNode):
         self.img_dir = img_dir
         self.mem = kwargs.get('mem', None)
         self.cpu = kwargs.get('cpu', None)
-        self.status = kwargs.get('status', None)
+        self.status = kwargs.get('status', libvirt.VIR_DOMAIN_NOSTATE)
         if self.add_iface and not isinstance(self.add_iface, list):
             self.add_iface = [self.add_iface]
 
