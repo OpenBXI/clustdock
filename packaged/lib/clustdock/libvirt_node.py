@@ -38,13 +38,13 @@ class LibvirtConnexion(object):
         """Check if the connexion is ok"""
         return self.cnx is not None
 
-    def listvms(self, all=True):
+    def listvms(self, allnodes=True):
         """List all vms on the host"""
         vms = []
         try:
             domains = self.cnx.listAllDomains()
             for domain in domains:
-                if not all:
+                if not allnodes:
                     if domain.state()[0] != libvirt.VIR_DOMAIN_RUNNING:
                         continue
                 node = LibvirtNode.from_domain(domain, self.host)

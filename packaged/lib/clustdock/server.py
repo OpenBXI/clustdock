@@ -89,8 +89,9 @@ class ClustdockWorker(object):
 
     def process_cmd(self, cmd):
         '''Process recieved cmd'''
-        if cmd == 'list':
-            hosts = self.list_nodes(keep_obj=False)
+        if cmd.startswith('list'):
+            (_, allnodes) = cmd.split()
+            hosts = self.list_nodes(allnodes=eval(allnodes), keep_obj=False)
             self.rep_sock.send(msgpack.packb(hosts))
         elif cmd.startswith('spawn'):
             (_, profil, name, nb_nodes, host) = cmd.split()
@@ -128,7 +129,7 @@ class ClustdockWorker(object):
             self.docker_cnx[host] = cnx
         return cnx
 
-    def list_nodes(self, hostlist=None, byhost=True, keep_obj=True):
+    def list_nodes(self, allnodes=True, hostlist=None, byhost=True, keep_obj=True):
         '''List all nodes on managed hosts or specified hostlist'''
         hosts = {}
         if hostlist is None:
@@ -138,7 +139,7 @@ class ClustdockWorker(object):
             if not libvirt_cnx.is_ok():
                 _LOGGER.warning("No libvirt connexion to host %s. Skipping", host)
                 continue
-            vms = libvirt_cnx.listvms()
+            vms = libvirt_cnx.listvms(allnodes=allnodes)
             if not keep_obj:
                 hosts[host] = [vm.__dict__ for vm in vms]
             else:
@@ -147,7 +148,7 @@ class ClustdockWorker(object):
             if not docker_cnx.is_ok():
                 _LOGGER.warning("No docker connexion to host %s. Skipping", host)
                 continue
-            containers = docker_cnx.list_containers()
+            containers = docker_cnx.list_containers(allnodes=allnodes)
             if not keep_obj:
                 hosts[host].extend([dock.__dict__ for dock in containers])
             else:

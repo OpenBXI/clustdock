@@ -77,7 +77,11 @@ if __name__ == "__main__":
                              help="Node names (nodeset)")
     # list command
     parser_list = subparsers.add_parser("list",
-                        help="List docker clusters already spawn on the network")
+                        help="List running docker containers and VMs on managed hosts")
+    parser_list.add_argument('-a', '--all',
+                             dest='allnodes',
+                             action="store_true",
+                             help="List all nodes, not only running nodes")
 
     # Configuration file
     parser.add_argument("-c", "--cfgfile",

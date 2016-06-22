@@ -42,9 +42,9 @@ class ClustdockClient(object):
             _LOGGER.error("Could not connect to server at %s. Exiting", server)
             sys.exit(3)
 
-    def list(self, **kwargs):
+    def list(self, allnodes, **kwargs):
         try:
-            self.socket.send("list")
+            self.socket.send("list %s" % allnodes)
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
             # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))

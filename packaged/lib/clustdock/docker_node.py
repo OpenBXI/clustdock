@@ -67,11 +67,11 @@ class DockerConnexion(object):
         """Check if the connexion is ok"""
         return self.cnx is not None
 
-    def list_containers(self, all=True):
+    def list_containers(self, allnodes=True):
         """List all containers on the host"""
         containers = []
         cmd_param = '-f status=running'
-        if all:
+        if allnodes:
             cmd_param = "--all"
         out_format = '--format "{{.Image}};{{.Names}};{{.Status}}"'
         cmd = 'docker ps %s %s' % (cmd_param, out_format)
@@ -88,7 +88,11 @@ class DockerConnexion(object):
 
         docks = docks.split('\n')
         for dock in docks:
-            (cimg, name, status) = dock.split(';')
+            try:
+                (cimg, name, status) = dock.split(';')
+            except ValueError:
+                _LOGGER.debug("skipping line: '%s'", dock)
+                continue
             _LOGGER.debug("container: %s, %s, status: %s", cimg, name, status)
             status = get_docker_status(status)
             contner = DockerNode(name, cimg, status=status)
