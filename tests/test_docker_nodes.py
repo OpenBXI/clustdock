@@ -43,7 +43,7 @@ class DockerNodeTest(unittest.TestCase):
             'name': 'dv0',
             'running': False,
             'add_iface': None,
-            'status': clustdock.VirtualNode.STATUS_UNKNOWN,
+            'status': dnode.STATUS['created'],
             'unreachable': False
         }
         self.assertDictEqual(expected, node_desc)
