@@ -41,7 +41,7 @@ class ClustdockWorker(object):
 
     def init_sockets(self):
         """Initialize zmq sockets"""
-        _LOGGER.info("Initializing sockets for worker %d", self.worker_id)
+        _LOGGER.debug("Initializing sockets for worker %d", self.worker_id)
         self.ctx = zmq.Context()
         self.rep_sock = self.ctx.socket(zmq.REP)
         self.rep_sock.connect(self.url_server)
@@ -57,7 +57,7 @@ class ClustdockWorker(object):
         global _LOGGER
         _LOGGER = logging.getLogger(__name__)
         self.init_sockets()
-        _LOGGER.debug("Worker %d started", self.worker_id)
+        _LOGGER.info("Worker %d started", self.worker_id)
         fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
         signalfd.sigprocmask(signalfd.SIG_BLOCK, [signal.SIGTERM])
         with os.fdopen(fd) as fo:
