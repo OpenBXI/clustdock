@@ -208,17 +208,17 @@ class ClustdockWorker(object):
         if host is None:
             err = "Error: No host available\n"
             _LOGGER.error(err)
-            self.rep_sock.send(msgpack.packb((nodes, [err])))
+            self.rep_sock.send(msgpack.packb(('', [err])))
             return nodes
         if not vc.VirtualCluster.valid_clustername(name):
             err = "Error: clustername '{}' is not a valid name\n".format(name)
             _LOGGER.error(err)
-            self.rep_sock.send(msgpack.packb((nodes, [err])))
+            self.rep_sock.send(msgpack.packb(('', [err])))
             return nodes
         if profil not in self.profiles:
             err = "Error: Profil '{}' not found in configuration file\n".format(profil)
             _LOGGER.error(err)
-            self.rep_sock.send(msgpack.packb((nodes, [err])))
+            self.rep_sock.send(msgpack.packb(('', [err])))
             return nodes
 
         nodelist = self.list_nodes(byhost=False)

@@ -51,7 +51,7 @@ class ClustdockClient(object):
             print("%-10s %-7s %-40s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
             print("-" * 71)
             liste = sort_nodes(liste)
-            for host in liste:
+            for host in sorted(liste):
                 print('\033[01m%s\033[0m' % host)
                 print_nodes(liste[host][STATUS['running']],
                             '\033[32mrunning\033[0m')
