@@ -21,9 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 class VirtualNode(object):
     '''Represents a virtual node'''
 
-    STATUS_STARTED = 1
-    STATUS_UNREACHABLE = 2
-    STATUS_UNKNOWN = 3
+    STATUS_UNKNOWN = 0
 
     def __init__(self, name, host=None, ip=None, **kwargs):
         self.name = name
@@ -34,7 +32,6 @@ class VirtualNode(object):
             self.host = 'localhost'
         self.status = kwargs.get('status', self.STATUS_UNKNOWN)
         self.clustername, self.idx = VirtualNode.split_name(self.name)
-        self.unreachable = False
         self.before_start = kwargs.get('before_start', None)
         self.after_start = kwargs.get('after_start', None)
         self.after_end = kwargs.get('after_end', None)
@@ -49,7 +46,6 @@ class VirtualNode(object):
             grp = res.groups()
             clustername = grp[0]
             idx = int(grp[1])
-        res = re.search(r'^([a-z]+[a-z-_]+)$', clustername).groups()
         return (clustername, idx)
 
     def run_hook(self, hook_file, vtype):
@@ -62,20 +58,16 @@ class VirtualNode(object):
         (stdout, stderr) = p.communicate()
         return (p.returncode, stdout, stderr)
 
-    def start(self, pipe):
+    def start(self, cnx, pipe):
         """Start virtual node"""
         raise NotImplementedError("Must be redefine is subclasses")
 
-    def stop(self, pipe=None, fork=True):
+    def stop(self, cnx, pipe=None, fork=True):
         """Stop virtual node"""
         raise NotImplementedError("Must be redefine is subclasses")
 
-    def get_ip(self):
+    def get_ip(self, cnx):
         """Get ip of the node"""
-        raise NotImplementedError("Must be redefine is subclasses")
-
-    def is_alive(self):
-        """Return True if node is still defined, else False"""
         raise NotImplementedError("Must be redefine is subclasses")
 
 

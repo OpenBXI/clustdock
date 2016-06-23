@@ -10,7 +10,6 @@
 '''
 import logging
 import zmq
-import cPickle
 import msgpack
 import signalfd
 import signal
@@ -105,18 +104,23 @@ class ClustdockWorker(object):
             self.stop_nodes(nodelist)
         elif cmd.startswith('get_ip'):
             nodelist = cmd.split()[1]
-            self.req_sock.send('%d get_nodes %s' % (self.worker_id, nodelist))
-            rep = self.req_sock.recv()
-            (nodes, res) = msgpack.unpackb(rep, object_hook=decode_node)
-            self.get_ip(nodes, res)
+            self.get_ip(nodelist)
         else:
             _LOGGER.debug("Ignoring cmd %s", cmd)
             self.rep_sock.send(msgpack.packb('FAIL'))
+
+    def _get_cnx(self, node):
+        """return libvirt/docker connexion for given node"""
+        if isinstance(node, dnode.DockerNode):
+            return self._get_docker_cnx(node.host)
+        elif isinstance(node, lnode.LibvirtNode):
+            return self._get_libvirt_cnx(node.host)
 
     def _get_libvirt_cnx(self, host):
         """return libvirt connexion object"""
         cnx = self.libvirt_cnx.get(host, None)
         if cnx is None:
+            _LOGGER.debug("New libvirt connexion to host '%s'", host)
             cnx = lnode.LibvirtConnexion(host)
             self.libvirt_cnx[host] = cnx
         return cnx
@@ -125,6 +129,7 @@ class ClustdockWorker(object):
         """return docker connexion object"""
         cnx = self.docker_cnx.get(host, None)
         if cnx is None:
+            _LOGGER.debug("New docker connexion to host '%s'", host)
             cnx = dnode.DockerConnexion(host, self.docker_port)
             self.docker_cnx[host] = cnx
         return cnx
@@ -160,18 +165,37 @@ class ClustdockWorker(object):
             return nodes
         return hosts
 
-    def get_ip(self, nodes, err):
-        '''Get the ip of a node if possible'''
+    def get_ip(self, nodes):
+        '''Get the ip of nodes if possible'''
         res = []
         errors = []
-        if err != "":
-            errors.append(err)
-        for node in nodes:
-            tmp = node.get_ip()
-            if tmp != '':
-                res.append((tmp, node.name))
-            else:
-                errors.append("Error: Unable to find IP for node %s\n" % node.name)
+        try:
+            nodeset = NodeSet(nodes)
+        except NodeSetParseError:
+            msg = "Error: '%s' is not a valid nodeset. Skipping" % nodes
+            _LOGGER.error(msg)
+            errors.append(msg)
+        else:
+            nodes_to_ping = []
+            nodelist = self.list_nodes(allnodes=False, byhost=False)
+            node_dict = {node.name: node for node in nodelist}
+            availnodes = NodeSet.fromlist(node_dict.keys())
+            for node in nodeset:
+                if node in availnodes:
+                    nodes_to_ping.append(node_dict[node])
+                else:
+                    msg = "Error: node '%s' does not exist or is "\
+                          "not running. Skipping\n" % node
+                    _LOGGER.warning(msg)
+                    errors.append(msg)
+
+            for node in nodes_to_ping:
+                cnx = self._get_cnx(node)
+                tmp = node.get_ip(cnx)
+                if tmp != '':
+                    res.append((tmp, node.name))
+                else:
+                    errors.append("Error: Unable to find IP for node %s\n" % node.name)
         self.rep_sock.send(msgpack.packb((res, errors)))
 
     def select_nodes(self, profil, name, nb_nodes, host):
@@ -237,7 +261,7 @@ class ClustdockWorker(object):
         for node in nodes:
             to_child, to_self = mp.Pipe()
             p = mp.Process(target=node.__class__.start,
-                           args=(node,),
+                           args=(node, self._get_cnx(node)),
                            kwargs={'pipe': to_self})
             p.start()
             processes.append((node, p, (to_child, to_self)))
@@ -287,7 +311,7 @@ class ClustdockWorker(object):
             for node in nodes_to_stop:
                 to_child, to_self = mp.Pipe()
                 p = mp.Process(target=node.__class__.stop,
-                               args=(node,),
+                               args=(node, self._get_cnx(node)),
                                kwargs={'pipe': to_self})
                 p.start()
                 processes.append((node, p, (to_child, to_self)))
@@ -303,90 +327,6 @@ class ClustdockWorker(object):
 
         nodelist = str(NodeSet.fromlist(stopped_nodes))
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class ClustdockServer(object):
-
-    def __init__(self, port, profiles, dump_file, hosts):
-        '''docstring'''
-        self.port = port
-        self.profiles = profiles
-        self.dump_file = dump_file
-        self.ctx = zmq.Context()
-        self.socket = self.ctx.socket(zmq.REP)
-        _LOGGER.debug("Trying to bind server to %s", IPC_SOCK)
-        self.socket.bind(IPC_SOCK)
-        self.hosts = extract_hosts(hosts)
-
-    def process_cmd(self, cmd, worker_id):
-        '''Process cmd received by a worker'''
-        if cmd.startswith('list'):
-            self.socket.send(msgpack.packb(self.clusters.values(),
-                             default=encode_cluster))
-        elif cmd.startswith('spawn'):
-            (_, profil, name, nb_nodes, host) = cmd.split()
-            if host == 'None':
-                host = _choose_host(self.hosts)
-            self.create_nodes(profil, name, int(nb_nodes), host, worker_id)
-        elif cmd.startswith('del_nodes'):
-            name = cmd.split()[1]
-            self.del_nodes(name, worker_id)
-        elif cmd.startswith('started_nodes'):
-            nodelist = cmd.split()[1]
-            self.started_nodes(nodelist, worker_id)
-        elif cmd.startswith('get_nodes'):
-            nodelist = cmd.split()[1]
-            nodes, res = self.get_nodes(nodelist)
-            self.socket.send(msgpack.packb((nodes, res), default=encode_node))
-        else:
-            _LOGGER.debug("Ignoring cmd %s from worker %s", cmd, worker_id)
-            self.socket.send(msgpack.packb('FAIL'))
-
-    def get_nodes(self, nodelist):
-        """Return object representation of nodes in nodelist"""
-        nodes = []
-        res = ""
-        try:
-            nodeset = NodeSet(nodelist)
-        except NodeSetParseError:
-            res = "Error: '%s' is not a valid nodeset. Skipping" % nodelist
-            _LOGGER.error(res)
-        else:
-            for nodename in nodeset:
-                try:
-                    clustername, _ = clustdock.VirtualNode.split_name(nodename)
-                except AttributeError:
-                    _LOGGER.error("%s is not a valid node name", nodename)
-                    res += "Error: '{}' is not a valid node name\n".format(nodename)
-                    continue
-                cluster = self.clusters.get(clustername, None)
-                if cluster:
-                    node = cluster.nodes.get(nodename, None)
-                    if node:
-                        nodes.append(node)
-                    else:
-                        _LOGGER.debug("Node %s does not exist", nodename)
-                        res += "Error: Node %s does not exist\n" % nodename
-                else:
-                    _LOGGER.debug("Cluster %s does not exist", clustername)
-                    res += "Error: Cluster %s does not exist\n" % clustername
-
-        return (nodes, res)
 
 
 def extract_hosts(hosts):
@@ -419,53 +359,9 @@ def encode_node(obj):
 
 def decode_node(dico):
     """Recreate node from dict"""
-    if 'docker_host' in dico:
+    if 'docker_opts' in dico:
         return clustdock.docker_node.DockerNode(**dico)
-    elif 'uri' in dico:
+    elif 'base_domain' in dico:
         return clustdock.libvirt_node.LibvirtNode(**dico)
     else:
         return dico
-
-
-# def encode_cluster(obj):
-#     """Prepare cluster to be send over the network"""
-#     if isinstance(obj, vc.VirtualCluster):
-#         nodes_desc = {}
-#         for node in obj.nodes:
-#             node_desc = encode_node(obj.nodes[node])
-#             nodes_desc[node] = node_desc
-#         encoded = obj.__dict__.copy()
-#         encoded['nodes'] = nodes_desc
-#         return encoded
-#     else:
-#         return obj
-# 
-# 
-# def decode_cluster(dico):
-#     """Recreate node from dict"""
-#     if 'nodes' in dico:
-#         cluster = vc.VirtualCluster(**dico)
-#         for node_name in dico['nodes']:
-#             node = decode_node(dico['nodes'][node_name])
-#             cluster.nodes[node.name] = node
-#         return cluster
-#     else:
-#         return dico
-
-
-# def sort_nodes(cluster):
-#     '''Sort nodes for list command'''
-#     hosts = {}
-# 
-#     for nodename in cluster.nodes:
-#         node = cluster.nodes[nodename]
-#         if node.host not in hosts:
-#             hosts[node.host] = {
-#                 cluster.name: {
-#                     clustdock.VirtualNode.STATUS_STARTED: [],
-#                     clustdock.VirtualNode.STATUS_UNREACHABLE: [],
-#                     clustdock.VirtualNode.STATUS_UNKNOWN: []
-#                 }
-#             }
-#         hosts[node.host][cluster.name][node.status].append(node.name)
-#     return hosts

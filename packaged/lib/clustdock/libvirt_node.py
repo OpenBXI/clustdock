@@ -25,7 +25,9 @@ class LibvirtConnexion(object):
     def __init__(self, host):
         """Create new libvirt connexion on the specified node"""
         self.host = host
-        self.uri = "qemu+ssh://%s/system" % self.host
+        self.uri = None
+        if self.host != 'localhost':
+            self.uri = "qemu+ssh://%s/system" % self.host
         try:
             self.cnx = libvirt.open(self.uri)
         except libvirt.libvirtError as exc:
@@ -53,6 +55,10 @@ class LibvirtConnexion(object):
             pass
         return vms
 
+    @property
+    def instance(self):
+        return self.cnx
+
 
 class LibvirtNode(clustdock.VirtualNode):
 
@@ -65,25 +71,30 @@ class LibvirtNode(clustdock.VirtualNode):
         source_dir_path = os.path.dirname(source_path)
         name = domain.name()
         status = domain.state()[0]
-        node = LibvirtNode(name, source_path, source_dir_path, host=host, status=status)
+        node = LibvirtNode(name, source_path, source_dir_path,
+                           host=host, status=status,
+                           img_path=source_path)
         return node
 
-    def __init__(self, name, img, img_dir, **kwargs):
+    def __init__(self, name, base_domain, storage_dir, **kwargs):
         """Instanciate a libvirt node"""
         super(LibvirtNode, self).__init__(name, **kwargs)
-        self.uri = "qemu+ssh://%s/system" % self.host if self.host != 'localhost' else None
-        self.img = img
-        self.img_dir = img_dir
+        self.base_domain = base_domain
+        self.storage_dir = storage_dir
         self.mem = kwargs.get('mem', None)
         self.cpu = kwargs.get('cpu', None)
         self.status = kwargs.get('status', libvirt.VIR_DOMAIN_NOSTATE)
         if self.add_iface and not isinstance(self.add_iface, list):
             self.add_iface = [self.add_iface]
+        self.img_path = kwargs.get('img_path', None)
+        if self.img_path is None:
+            self.new_img_path()
 
-    @property
-    def img_path(self):
+    def new_img_path(self):
         """Return path of the node image"""
-        return os.path.join(self.img_dir, "%s.qcow2" % self.name)
+        img_path = os.path.join(self.storage_dir, "%s.qcow2" % self.name)
+        self.img_path = img_path
+        return self.img_path
 
     def get_baseimg_path(self, xmldesc):
         """Get base image path from xml description"""
@@ -91,32 +102,24 @@ class LibvirtNode(clustdock.VirtualNode):
         path = tree.xpath("//devices/disk/source/@file")[0]
         self.baseimg_path = path
 
-    def start(self, pipe):
+    def start(self, cnx, pipe):
         """Start libvirt virtual machine"""
         spawned = 0
         msg = 'OK'
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
-        try:
-            cvirt = libvirt.open(self.uri)
-        except libvirt.libvirtError as exc:
-            msg = "Couldn't connect to host '{}'\n".format(self.host)
-            msg += str(exc)
-            _LOGGER.error(msg)
-            pipe.send(msg)
-            sys.exit(1)
         mngtvirt = libvirt.open()
         # Check if base domain exists, otherwise exit
         base_dom = None
         try:
-            base_dom = mngtvirt.lookupByName(self.img)
+            base_dom = mngtvirt.lookupByName(self.base_domain)
         except libvirt.libvirtError as exc:
-            msg = "Base image '{}' doesn't exist\n".format(self.img)
+            msg = "Base image '{}' doesn't exist\n".format(self.base_domain)
             msg += str(exc)
             _LOGGER.error(msg)
             pipe.send(msg)
             sys.exit(1)
         # check if domain already exists
-        if self.name in cvirt.listDefinedDomains():
+        if self.name in cnx.instance.listDefinedDomains():
             msg = "Image '{}' already exists. Skipping\n".format(self.name)
             # if force, delete and create
             _LOGGER.error(msg)
@@ -151,7 +154,7 @@ class LibvirtNode(clustdock.VirtualNode):
             msg += stderr
             _LOGGER.error(msg)
             spawned = 1
-            self.stop(fork=False)
+            self.stop(cnx, fork=False)
         else:
             cmd = "virt-customize --hostname %s -a %s" % (self.name, self.img_path)
             # cmd = "guestfish -i -a %s write /etc/hostname '%s'" % (
@@ -165,11 +168,11 @@ class LibvirtNode(clustdock.VirtualNode):
                 msg += stderr
                 _LOGGER.error(msg)
                 spawned = 1
-                self.stop(fork=False)
+                self.stop(cnx, fork=False)
             else:
                 try:
-                    cvirt.defineXML(new_xml)
-                    dom = cvirt.lookupByName(self.name)
+                    cnx.instance.defineXML(new_xml)
+                    dom = cnx.instance.lookupByName(self.name)
                     dom.create()
                     if self.after_start:
                         _LOGGER.debug("Trying to launch after start hook: %s",
@@ -190,49 +193,47 @@ class LibvirtNode(clustdock.VirtualNode):
         pipe.send(msg)
         sys.exit(spawned)
 
-    def stop(self, pipe=None, fork=True):
+    def stop(self, cnx, pipe=None, fork=True):
         """Stop libvirt node"""
         msg = 'OK'
         rc = 0
         try:
-            cvirt = libvirt.open(self.uri)
+            dom = cnx.instance.lookupByName(self.name)
         except libvirt.libvirtError as exc:
-            msg = "Couldn't connect to host '{}'\n".format(self.host)
+            msg = "Couldn't find domain '{}'\n".format(self.name)
             msg += str(exc)
             _LOGGER.error(msg)
             rc = 1
         else:
+            if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
+                _LOGGER.debug('Destroying domain %s', self.name)
+                dom.destroy()
+            _LOGGER.debug('Undefine domain %s', self.name)
             try:
-                dom = cvirt.lookupByName(self.name)
+                dom.undefine()  # --remove-all-storage
             except libvirt.libvirtError as exc:
-                msg = "Couldn't find domain '{}'\n".format(self.name)
+                msg = "Cannot undefine domain '{}'\n".format(self.name)
                 msg += str(exc)
                 _LOGGER.error(msg)
                 rc = 1
             else:
-                if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
-                    _LOGGER.debug('Destroying domain %s', self.name)
-                    dom.destroy()
-                _LOGGER.debug('Undefine domain %s', self.name)
-                dom.undefine()  # --remove-all-storage
-                cmd = "rm -f %s" % self.img_path
-                _LOGGER.debug("Launching %s", cmd)
-                p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
-                (_, stderr) = p.communicate()
-                if p.returncode != 0:
-                    msg = "Error when removing disk for node '{}'\n".format(self.name)
-                    msg += stderr
-                    _LOGGER.error(msg)
-                    rc = 1
-                else:
-                    if self.after_end:
-                        _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
-                        rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
-                        if rc != 0:
-                            msg = "Error when stopping '{}'\n".format(self.name)
-                            msg += stderr
-                            _LOGGER.error(msg)
-                            rc = 1
+                if self.after_end:
+                    _LOGGER.debug("Trying to launch after end hook: %s", self.after_end)
+                    rc, _, stderr = self.run_hook(self.after_end, clustdock.LIBVIRT_NODE)
+                    if rc != 0:
+                        msg = "Error when stopping '{}'\n".format(self.name)
+                        msg += stderr
+                        _LOGGER.error(msg)
+                        rc = 1
+        cmd = "rm -f %s" % self.img_path
+        _LOGGER.debug("Launching %s", cmd)
+        p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+        (_, stderr) = p.communicate()
+        if p.returncode != 0:
+            msg = "Error when removing disk for node '{}'\n".format(self.name)
+            msg += stderr
+            _LOGGER.error(msg)
+            rc = 1
         if fork:
             if pipe:
                 pipe.send(msg)
@@ -240,43 +241,24 @@ class LibvirtNode(clustdock.VirtualNode):
         else:
             return rc
 
-    def is_alive(self):
-        """Return True if node is still present on the host, else False"""
-        res = False
-        try:
-            cvirt = libvirt.open(self.uri)
-            domain = cvirt.lookupByName(self.name)
-            self.running = domain.state()[0] == libvirt.VIR_DOMAIN_RUNNING
-            res = self.running
-        except libvirt.libvirtError:
-            pass
-        return res
-
-    def get_ip(self):
+    def get_ip(self, cnx):
         '''Get vm ip from domain name'''
-        if self.ip != '':
-            return self.ip
         ip = ''
-        if not self.is_alive():
-            return None
-        cvirt = libvirt.open(self.uri)
-        domain = cvirt.lookupByName(self.name)
+        try:
+            domain = cnx.instance.lookupByName(self.name)
+        except libvirt.libvirtError as exc:
+            _LOGGER.error("Couldn't find domain '{}'\n".format(self.name))
+            return ip
         xml_desc = domain.XMLDesc()
         tree = etree.fromstring(xml_desc)
         mac = tree.xpath("//mac/@address")[0]
         _LOGGER.debug('mac of domain %s is %s', self.name, mac)
         try:
             cmd = "ip neigh | grep '%s' | awk '{print $1}'" % mac
-            for retry in range(0, 20):
-                p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
-                (node_info, _) = p.communicate()
-                ip = node_info.strip()
-                if ip == '':
-                    _LOGGER.debug("ip of %s is empty, retrying", self.name)
-                    time.sleep(2)
-                else:
-                    _LOGGER.debug("ip of %s is %s", self.name, ip)
-                    break
+            p = sp.Popen(cmd, stdout=sp.PIPE, shell=True)
+            (node_info, _) = p.communicate()
+            ip = node_info.strip()
+            _LOGGER.debug("ip of %s is '%s'", self.name, ip)
 
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)

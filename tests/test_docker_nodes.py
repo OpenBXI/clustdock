@@ -35,16 +35,13 @@ class DockerNodeTest(unittest.TestCase):
             'before_start': None,
             'after_start': None,
             'after_end': None,
-            'docker_host': '',
             'docker_opts': '',
             'host': 'localhost',
             'idx': 0,
             'ip': '',
             'name': 'dv0',
-            'running': False,
             'add_iface': None,
             'status': dnode.STATUS['created'],
-            'unreachable': False
         }
         self.assertDictEqual(expected, node_desc)
         new_node = server.decode_node(node_desc)

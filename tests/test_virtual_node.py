@@ -48,13 +48,19 @@ class VirtualNodeTest(unittest.TestCase):
         self.assertEqual(idx, 0)
 
         name = "node.name0"
-        self.assertRaises(AttributeError, clustdock.VirtualNode.split_name, name)
+        nodename, idx = clustdock.VirtualNode.split_name(name)
+        self.assertEqual(nodename, "node.name0")
+        self.assertEqual(idx, None)
 
         name = "-nodename0"
-        self.assertRaises(AttributeError, clustdock.VirtualNode.split_name, name)
+        nodename, idx = clustdock.VirtualNode.split_name(name)
+        self.assertEqual(nodename, "-nodename0")
+        self.assertEqual(idx, None)
 
         name = "_nodename0"
-        self.assertRaises(AttributeError, clustdock.VirtualNode.split_name, name)
+        nodename, idx = clustdock.VirtualNode.split_name(name)
+        self.assertEqual(nodename, "_nodename0")
+        self.assertEqual(idx, None)
 
 
 class VirtualClusterTest(unittest.TestCase):
