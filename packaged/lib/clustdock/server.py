@@ -26,8 +26,6 @@ import clustdock.libvirt_node as lnode
 import clustdock
 
 _LOGGER = logging.getLogger(__name__)
-# IPC_SOCK = "ipc:///var/run/clustdock_workers.sock"
-IPC_SOCK = "ipc:///tmp/clustdock_workers.sock"
 
 
 class ClustdockWorker(object):
@@ -46,13 +44,10 @@ class ClustdockWorker(object):
         _LOGGER.info("Initializing sockets for worker %d", self.worker_id)
         self.ctx = zmq.Context()
         self.rep_sock = self.ctx.socket(zmq.REP)
-        _LOGGER.debug("trying to connect worker %d to ThreadDevice at %s",
+        self.rep_sock.connect(self.url_server)
+        _LOGGER.debug("worker %d connected to ThreadDevice at %s",
                       self.worker_id,
                       self.url_server)
-        self.rep_sock.connect(self.url_server)
-        _LOGGER.debug("trying to connect worker %d to server at %s",
-                      self.worker_id,
-                      IPC_SOCK)
 
     def start(self, loglevel, logfile):
         """Start to work !"""
@@ -96,9 +91,14 @@ class ClustdockWorker(object):
             (_, profil, name, nb_nodes, host) = cmd.split()
             if host == 'None':
                 host = _choose_host(self.hostlist)
-            nodes = self.select_nodes(profil, name, int(nb_nodes), host)
-            if len(nodes) != 0:
-                self.spawn_nodes(nodes)
+            if host not in self.hostlist:
+                err = "Error: host '%s' is not managed" % host
+                _LOGGER.error(err)
+                self.rep_sock.send(msgpack.packb(("", [err])))
+            else:
+                nodes = self.select_nodes(profil, name, int(nb_nodes), host)
+                if len(nodes) != 0:
+                    self.spawn_nodes(nodes)
         elif cmd.startswith('stop_nodes'):
             nodelist = cmd.split()[1]
             self.stop_nodes(nodelist)

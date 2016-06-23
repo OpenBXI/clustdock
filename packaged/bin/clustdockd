@@ -22,9 +22,8 @@ from multiprocessing import Process
 import clustdock.server
 
 CONFIG_FILE = "/etc/clustdockd.conf"
-DUMP_FILE = "/var/run/clustdockd.bin"
-# THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
-THREAD_SOCK = "ipc:///tmp/clustdock_dealer.sock"
+THREAD_SOCK = "ipc:///var/run/clustdock_dealer.sock"
+# THREAD_SOCK = "ipc:///tmp/clustdock_dealer.sock"
 
 
 def main(args):
@@ -42,25 +41,9 @@ def main(args):
         _LOGGER.error("No 'hosts' value found in %s configuration file",
                       args.cfgfile)
         sys.exit(1)
-    
+
     hostlist = clustdock.server.extract_hosts(args.cfg['hosts'])
     _LOGGER.debug("Managed hosts: %s", hostlist)
-    
-    # clserver = clustdock.server.ClustdockServer(args.port,
-    #                                             args.cfg['profiles'],
-    #                                             args.dumpfile,
-    #                                             args.cfg['hosts'])
-    
-    # Empty socker buffers
-    # while clserver.socket.poll(10) != 0:
-    #     clientid, _, message = clserver.socket.recv_multipart()
-    #     print("Recieved control command: %s" % message)
-    #     clserver.socket.send("FAIL")
-
-    # Initial inventory
-    # clserver.load_from_file()
-    # clserver.inventory()
-    # last_exec = time.time()
 
     fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
     signalfd.sigprocmask(signalfd.SIG_BLOCK, [signal.SIGTERM])
@@ -91,38 +74,20 @@ def main(args):
     _LOGGER.debug("Entering main loop")
     with os.fdopen(fd) as fo:
         poller = zmq.Poller()
-        # poller.register(clserver.socket, zmq.POLLIN)
         poller.register(fo, zmq.POLLIN)
         while True:
             try:
                 items = dict(poller.poll(1000))
-                # if clserver.socket in items:
-                #     worker_id, cmd = clserver.socket.recv().split(None, 1)
-                #     _LOGGER.debug("cmd received from worker %s: %s",
-                #                   worker_id,
-                #                   cmd)
-                #     clserver.process_cmd(cmd, worker_id)
-
-                # if last_exec + 60 <= time.time():
-
-                #     # clserver.inventory()
-                #     last_exec = time.time()
-
                 if fo.fileno() in items:
                     _LOGGER.debug("Signal received")
-                    # clserver.save_to_file()
                     break
 
             except KeyboardInterrupt:
-                # clserver.save_to_file()
                 break
 
     _LOGGER.info("Terminating workers")
     for worker in workers:
         worker.terminate()
-
-    # clserver.socket.close()
-    # clserver.ctx.destroy()
     _LOGGER.info("Exiting server")
 
 
@@ -134,10 +99,6 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cfgfile",
                         default=CONFIG_FILE,
                         help="Configuration file. default: %(default)s")
-    # Dump file
-    parser.add_argument("-d", "--dumpfile",
-                        default=DUMP_FILE,
-                        help="Cluster dump file. default: %(default)s")
     # Logging level
     parser.add_argument('--loglevel', '-l', metavar='LEVEL',
         help='The log level to use', default=logging.WARNING)
