@@ -43,11 +43,11 @@ class ClustdockClient(object):
             sys.exit(3)
 
     def list(self, allnodes, **kwargs):
+        """Ask for nodelist on managed hosts"""
         try:
             self.socket.send("list %s" % allnodes)
             msg = self.socket.recv()
             liste = msgpack.unpackb(msg)
-            # print("%-10s %-7s %-20s %-40s" % ("Cluster", "#Nodes", "Nodeset", "Hosts"))
             print("%-10s %-7s %-40s %-11s" % ("Host", "#Nodes", "Nodeset", "Status"))
             print("-" * 71)
             liste = sort_nodes(liste)
@@ -87,7 +87,7 @@ class ClustdockClient(object):
         return rc
 
     def stop(self, nodeset, **kwargs):
-        """docstring"""
+        """Ask server to stop nodeset"""
         rc = 0
         try:
             _LOGGER.debug("Trying to delete %s", nodeset)
@@ -105,6 +105,7 @@ class ClustdockClient(object):
         return rc
 
     def getip(self, nodeset, **kwargs):
+        """Ask server to give back some ip"""
         rc = 0
         try:
             self.socket.send("get_ip %s" % nodeset)

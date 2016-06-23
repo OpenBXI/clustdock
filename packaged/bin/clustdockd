@@ -13,7 +13,6 @@ import os
 import logging
 import zmq
 from zmq.devices import ThreadDevice
-import time
 from configobj import ConfigObj
 import signal
 import signalfd

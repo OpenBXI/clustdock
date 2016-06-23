@@ -95,7 +95,8 @@ if __name__ == "__main__":
 
     _args = parser.parse_args()
     logging.basicConfig(level=_args.loglevel,
-        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
+        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|"
+               "%(funcName)s|%(lineno)d| %(message)s")
     _LOGGER = logging.getLogger()
 
     # Load configuration
