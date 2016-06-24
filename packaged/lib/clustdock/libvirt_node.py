@@ -19,6 +19,8 @@ import clustdock
 
 _LOGGER = logging.getLogger(__name__)
 
+CLUSTDOCK_METADATA = "clustdock"
+AFTER_END_METADATA = "clustdock.after_end"
 
 class LibvirtConnexion(object):
 
@@ -102,6 +104,23 @@ class LibvirtNode(clustdock.VirtualNode):
         path = tree.xpath("//devices/disk/source/@file")[0]
         self.baseimg_path = path
 
+    def getmetadata(self, domain):
+        """Get clustdock metadata from given domain"""
+        is_clustdock = None
+        try:
+            is_clustdock = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+                                        CLUSTDOCK_METADATA)
+        except libvirt.libvirtError as exc:
+            _LOGGER.error("Domain '%s' not spawned via clustdock", self.name)
+            return
+        try:
+            after_end = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+                                     AFTER_END_METADATA)
+            tree = etree.fromstring(after_end)
+            self.after_end = tree.xpath("//after_end/@path")[0]
+        except libvirt.libvirtError as exc:
+            _LOGGER.debug("no after_end hook set for domain '%s'", self.name)
+
     def start(self, cnx, pipe):
         """Start libvirt virtual machine"""
         spawned = 0
@@ -173,6 +192,15 @@ class LibvirtNode(clustdock.VirtualNode):
                 try:
                     cnx.instance.defineXML(new_xml)
                     dom = cnx.instance.lookupByName(self.name)
+
+                    dom.setMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+                                    "<clustdock/>", "clustdock", CLUSTDOCK_METADATA)
+                    if self.after_end:
+                        dom.setMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+                                        "<after_end path='%s'/>" % self.after_end,
+                                        "clustdock",
+                                        AFTER_END_METADATA)
+
                     dom.create()
                     if self.after_start:
                         _LOGGER.debug("Trying to launch after start hook: %s",
@@ -205,6 +233,7 @@ class LibvirtNode(clustdock.VirtualNode):
             _LOGGER.error(msg)
             rc = 1
         else:
+            self.getmetadata(dom)
             if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
                 _LOGGER.debug('Destroying domain %s', self.name)
                 dom.destroy()
