@@ -22,6 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 CLUSTDOCK_METADATA = "clustdock"
 AFTER_END_METADATA = "clustdock.after_end"
 
+
 class LibvirtConnexion(object):
 
     def __init__(self, host):
@@ -30,6 +31,11 @@ class LibvirtConnexion(object):
         self.uri = None
         if self.host != 'localhost':
             self.uri = "qemu+ssh://%s/system" % self.host
+        self.connect()
+        _LOGGER.debug("new libvirt connexion on host '%s'", self.host)
+
+    def connect(self):
+        """Open a new connexion on the specified node"""
         try:
             self.cnx = libvirt.open(self.uri)
         except libvirt.libvirtError as exc:
@@ -40,7 +46,7 @@ class LibvirtConnexion(object):
 
     def is_ok(self):
         """Check if the connexion is ok"""
-        return self.cnx is not None
+        return self.cnx.isAlive()
 
     def listvms(self, allnodes=True):
         """List all vms on the host"""
@@ -59,7 +65,11 @@ class LibvirtConnexion(object):
 
     @property
     def instance(self):
-        return self.cnx
+        if self.cnx.isAlive():
+            return self.cnx
+        else:
+            self.cnx.close()
+            self.connect()
 
 
 class LibvirtNode(clustdock.VirtualNode):
@@ -121,12 +131,13 @@ class LibvirtNode(clustdock.VirtualNode):
         except libvirt.libvirtError as exc:
             _LOGGER.debug("no after_end hook set for domain '%s'", self.name)
 
-    def start(self, cnx, pipe):
+    def start(self, pipe):
         """Start libvirt virtual machine"""
         spawned = 0
         msg = 'OK'
         _LOGGER.debug("Trying to spawn %s on host %s", self.name, self.host)
         mngtvirt = libvirt.open()
+        cnx = LibvirtConnexion(self.host)
         # Check if base domain exists, otherwise exit
         base_dom = None
         try:
@@ -219,12 +230,14 @@ class LibvirtNode(clustdock.VirtualNode):
                     spawned = 1
 
         pipe.send(msg)
+        cnx.instance.close()
         sys.exit(spawned)
 
-    def stop(self, cnx, pipe=None, fork=True):
+    def stop(self, pipe=None, fork=True):
         """Stop libvirt node"""
         msg = 'OK'
         rc = 0
+        cnx = LibvirtConnexion(self.host)
         try:
             dom = cnx.instance.lookupByName(self.name)
         except libvirt.libvirtError as exc:
@@ -263,6 +276,7 @@ class LibvirtNode(clustdock.VirtualNode):
             msg += stderr
             _LOGGER.error(msg)
             rc = 1
+        cnx.instance.close()
         if fork:
             if pipe:
                 pipe.send(msg)
@@ -270,13 +284,15 @@ class LibvirtNode(clustdock.VirtualNode):
         else:
             return rc
 
-    def get_ip(self, cnx):
+    def get_ip(self):
         '''Get vm ip from domain name'''
         ip = ''
+        cnx = LibvirtConnexion(self.host)
         try:
             domain = cnx.instance.lookupByName(self.name)
         except libvirt.libvirtError as exc:
             _LOGGER.error("Couldn't find domain '{}'\n".format(self.name))
+            cnx.instance.close()
             return ip
         xml_desc = domain.XMLDesc()
         tree = etree.fromstring(xml_desc)
@@ -292,6 +308,7 @@ class LibvirtNode(clustdock.VirtualNode):
         except sp.CalledProcessError:
             _LOGGER.error("Something went wrong when getting ip of %s", self.name)
         self.ip = ip
+        cnx.instance.close()
         return ip
 
     def build_xml(self, xml_info):

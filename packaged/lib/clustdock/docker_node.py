@@ -124,9 +124,10 @@ class DockerNode(clustdock.VirtualNode):
             self.add_iface = [self.add_iface]
         self.status = kwargs.get('status', STATUS['created'])
 
-    def start(self, cnx, pipe):
+    def start(self, pipe):
         '''Start a docker container'''
         # --cpuset-cpus {cpu_bind} \
+        cnx = DockerConnexion(self.host)
         msg = 'OK'
         spawn_cmd = "docker run -d -t --name %s -h %s \
                 --cap-add net_raw --cap-add net_admin \
@@ -178,8 +179,9 @@ class DockerNode(clustdock.VirtualNode):
         pipe.send(msg)
         sys.exit(spawned)
 
-    def stop(self, cnx, pipe=None, fork=True):
+    def stop(self, pipe=None, fork=True):
         """Stop docker container"""
+        cnx = DockerConnexion(self.host)
         rc = 0
         msg = 'OK'
         rmcmd = "docker rm -f -v %s" % self.name
@@ -203,8 +205,9 @@ class DockerNode(clustdock.VirtualNode):
         else:
             return rc
 
-    def get_ip(self, cnx):
+    def get_ip(self):
         '''Get container ip from name'''
+        cnx = DockerConnexion(self.host)
         ip = ''
         cmd = "docker exec %s ip a show scope global | grep 'inet '" % self.name
         (rc, out, err) = cnx.launch(cmd)
@@ -217,7 +220,8 @@ class DockerNode(clustdock.VirtualNode):
             self.ip = ip
         return ip
 
-    def _add_iface(self, iface, cnx):
+    def _add_iface(self, iface):
+        cnx = DockerConnexion(self.host)
         """Add another interface to the docker container"""
         prefix = "ssh %s" % self.host if self.host != 'localhost' else ''
         br, eth, ip = iface

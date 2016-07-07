@@ -119,10 +119,12 @@ class ClustdockWorker(object):
     def _get_libvirt_cnx(self, host):
         """return libvirt connexion object"""
         cnx = self.libvirt_cnx.get(host, None)
-        if cnx is None:
+        retry = 0
+        while cnx is None and retry < 5:
             _LOGGER.debug("New libvirt connexion to host '%s'", host)
             cnx = lnode.LibvirtConnexion(host)
             self.libvirt_cnx[host] = cnx
+            retry += 1
         return cnx
 
     def _get_docker_cnx(self, host):
@@ -190,8 +192,7 @@ class ClustdockWorker(object):
                     errors.append(msg)
 
             for node in nodes_to_ping:
-                cnx = self._get_cnx(node)
-                tmp = node.get_ip(cnx)
+                tmp = node.get_ip()
                 if tmp != '':
                     res.append((tmp, node.name))
                 else:
@@ -261,7 +262,7 @@ class ClustdockWorker(object):
         for node in nodes:
             to_child, to_self = mp.Pipe()
             p = mp.Process(target=node.__class__.start,
-                           args=(node, self._get_cnx(node)),
+                           args=(node,),
                            kwargs={'pipe': to_self})
             p.start()
             processes.append((node, p, (to_child, to_self)))
@@ -311,7 +312,7 @@ class ClustdockWorker(object):
             for node in nodes_to_stop:
                 to_child, to_self = mp.Pipe()
                 p = mp.Process(target=node.__class__.stop,
-                               args=(node, self._get_cnx(node)),
+                               args=(node,),
                                kwargs={'pipe': to_self})
                 p.start()
                 processes.append((node, p, (to_child, to_self)))
