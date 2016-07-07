@@ -156,7 +156,7 @@ class DockerNode(clustdock.VirtualNode):
             try:
                 if self.add_iface:
                     for iface in self.add_iface:
-                        self._add_iface(iface, cnx)
+                        self._add_iface(iface)
                 spawned = 0
             except AddIfaceException as exc:
                 msg = "Error when spawning '{}'. Cannot add interface '{}'\n".format(
