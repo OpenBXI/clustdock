@@ -9,7 +9,7 @@
 # Bull software starts with 1.1-Bull.1.0
 # For versionning policy, please see wiki:
 # http://intran0x.frec.bull.fr/projet/HPC/wiki_etudes/index.php/How_to_generate_RPM#Bull_rpm_NAMING_CONVENTION
-%define version 1.0.0
+%define version 1.1.0
 
 # Using the .snapshot suffix helps the SVN tagging process.
 # Please run <your_svn_checkout>/devtools/packaged/bin/auto_tag -m
@@ -64,7 +64,7 @@ Distribution:	Bull HPC
 #Vendor:         Bull
 License:        GPL
 BuildArch:	x86_64
-URL:	 	https://novahpc.frec.bull.fr
+URL:            https://novahpc.frec.bull.fr
 
 #TODO: What do you provide
 Provides: %{name}
@@ -187,4 +187,3 @@ test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 ## Do not add anything after the following line!
 ##################################################
 %changelog
-
