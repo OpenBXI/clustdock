@@ -46,6 +46,8 @@ class LibvirtConnexion(object):
 
     def is_ok(self):
         """Check if the connexion is ok"""
+        if self.cnx is None:
+            return False
         return self.cnx.isAlive()
 
     def listvms(self, allnodes=True):
