@@ -93,7 +93,7 @@ class DockerConnexion(object):
                 continue
             _LOGGER.debug("container: %s, %s, status: %s", cimg, name, status)
             status = get_docker_status(status)
-            contner = DockerNode(name, cimg, status=status)
+            contner = DockerNode(name, cimg, status=status, host=self.host)
             containers.append(contner)
         return containers
 
