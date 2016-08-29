@@ -1,0 +1,114 @@
+% vim:ft=tex:
+%
+\documentclass{standalone}
+\usepackage[english]{babel}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows, fit, calc}
+
+\pgfdeclarelayer{bg}    % declare background layer
+\pgfdeclarelayer{bg2}    % declare background layer
+\pgfdeclarelayer{nodes}    % declare nodes layer
+\pgfsetlayers{bg2,bg,nodes,main} 
+
+\begin{document}
+
+% Define block styles
+\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+    text width=5em, text centered, rounded corners, minimum height=4em]
+\tikzstyle{line} = [draw, -]
+\tikzstyle{cloud} = [draw, ellipse,fill=red!20, node distance=3cm,
+    minimum height=2em]
+   
+\tikzstyle{phynode} = [rectangle, draw, fill=blue!40,
+    text width=5em, rounded corners, minimum height=5em,
+    label={[align=center,shift={(0em,-1.5em)}]north:\textbf{#1}},
+    inner sep=1.5em]
+
+\tikzstyle{container} = [rectangle, draw, fill=green!40,
+    text width=7em, rounded corners, text centered, minimum height=2em]
+
+\tikzstyle{service} = [draw, ellipse,fill=yellow!40]
+
+\tikzstyle{network} = [draw, thick, dotted, inner sep=1em,
+    label={above:#1}]
+
+
+\begin{tikzpicture}[]
+    % Place nodes
+    
+    % LOGIN NODE
+    \node [service] (clustdock) {clustdock};
+    \begin{pgfonlayer}{nodes}
+        \node [phynode=loginNode, fit=(clustdock),] (login) {};
+    \end{pgfonlayer}
+    
+    % MNGT NODE
+    \node [service] at ($(login.east) + (3cm, 0)$) (clustdockd) {clustdockd};
+    \node [service, below of=clustdockd] (dns) {dnsmasq};
+    \begin{pgfonlayer}{nodes}
+        \node [phynode=mngtNode, fit=(clustdockd)(dns),] (mngt) {};
+    \end{pgfonlayer}
+    \node [above] at (mngt.north) (ipmngt) {\scriptsize\texttt{10.0.0.1/16}};
+    
+    % COMPUTE 1
+    \node [service] at ($(mngt.south) + (-3.5cm, -2cm)$) (libvirt1) {docker - libvirtd};
+    \node [service, below of=libvirt1] (dns1) {dnsmasq};
+    \begin{pgfonlayer}{nodes}
+        \node [phynode=compute1, fit=(libvirt1)(dns1),] (cpt1) {};
+    \end{pgfonlayer}
+    \node [above] at (cpt1.south) {\scriptsize\texttt{170.1.0.1/16}};
+    
+    % COMPUTE 2
+    \node [service] at ($(mngt.south) + (3.5cm, -2cm)$) (libvirt2) {docker - libvirtd};
+    \node [service, below of=libvirt2] (dns2) {dnsmasq};
+    \begin{pgfonlayer}{nodes}
+        \node [phynode=compute2, fit=(libvirt2)(dns2),] (cpt2) {};
+    \end{pgfonlayer}
+    \node [above] at (cpt2.south) {\scriptsize\texttt{170.1.0.1/16}};
+    
+    \path [line] (login) -- (mngt.west|-login);
+    \path [line] (mngt.south) -- (cpt1);
+    \path [line] (mngt.south) -- (cpt2);
+    
+    
+    \begin{pgfonlayer}{nodes}
+        \node [container] at ($(cpt1.south west) + (1cm, -1cm)$) (cnt11) {container-1\_1};
+        \node [below] at (cnt11.south) {\scriptsize\texttt{10.0.1.1/16}};
+        \node [above] at (cnt11.north) {\scriptsize\texttt{170.1.0.11/16}};
+        
+        \node [container] at ($(cpt1.south east) + (-1cm, -1cm)$) (cnt12) {container-1\_2};
+        \node [below] at (cnt12.south) {\scriptsize\texttt{10.0.1.2/16}};
+        \node [above] at (cnt12.north) {\scriptsize\texttt{170.1.0.12/16}};
+        
+        \node [container] at ($(cpt2.south west) + (1cm, -1cm)$) (cnt21) {container-2\_1};
+        \node [below] at (cnt21.south) {\scriptsize\texttt{10.0.2.1/16}};
+        \node [above] at (cnt21.north) {\scriptsize\texttt{170.1.0.11/16}};
+        
+        \node [container] at ($(cpt2.south east) + (-1cm, -1cm)$) (cnt22) {container-2\_2};
+        \node [below] at (cnt22.south) {\scriptsize\texttt{10.0.2.2/16}};
+        \node [above] at (cnt22.north) {\scriptsize\texttt{170.1.0.12/16}};
+    \end{pgfonlayer}
+
+
+    \begin{pgfonlayer}{bg}
+        \node [network=\scriptsize\texttt{170.1.0.0/16}, fill=blue!20, fit=(cpt1)(cnt11)(cnt12),] (net1) {};
+    \end{pgfonlayer}
+    
+    \begin{pgfonlayer}{bg}
+        \node [network=\scriptsize\texttt{170.1.0.0/16}, fill=blue!20, fit=(cpt2)(cnt21)(cnt22),] (net2) {};
+    \end{pgfonlayer}
+
+    \begin{pgfonlayer}{bg2}
+        \node [network=\scriptsize\texttt{10.0.0.0/16}, fill=blue!10, fit=(login)(mngt)(ipmngt)(net1)(net2),] (gnet) {};
+    \end{pgfonlayer}
+    
+    \path [line] (cpt1.south) -- (cnt11);
+    \path [line] (cpt1.south) -- (cnt12);
+    \path [line] (cpt2.south) -- (cnt21);
+    \path [line] (cpt2.south) -- (cnt22);
+
+    \useasboundingbox[] ($(gnet.south west) - (0,2em) $) rectangle ($(gnet.north east) + (2em,2em)$);
+\end{tikzpicture}
+
+
+\end{document}
