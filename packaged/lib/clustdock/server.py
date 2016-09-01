@@ -142,15 +142,16 @@ class ClustdockWorker(object):
         if hostlist is None:
             hostlist = self.hostlist
         for host in hostlist:
+            hosts[host] = []
             libvirt_cnx = self._get_libvirt_cnx(host)
             if not libvirt_cnx.is_ok():
                 _LOGGER.warning("No libvirt connexion to host %s. Skipping", host)
-                continue
-            vms = libvirt_cnx.listvms(allnodes=allnodes)
-            if not keep_obj:
-                hosts[host] = [vm.__dict__ for vm in vms]
             else:
-                hosts[host] = vms
+                vms = libvirt_cnx.listvms(allnodes=allnodes)
+                if not keep_obj:
+                    hosts[host].extend([vm.__dict__ for vm in vms])
+                else:
+                    hosts[host].extend(vms)
             docker_cnx = self._get_docker_cnx(host)
             if not docker_cnx.is_ok():
                 _LOGGER.warning("No docker connexion to host %s. Skipping", host)
