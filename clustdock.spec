@@ -75,7 +75,7 @@ Provides: %{name}
 #TODO: What do you require
 Requires: zeromq
 Requires: python-msgpack >= 0.4.1
-#
+
 #Requires: bxibase >= 3.2.0
 #BuildRequires: flex == 2.5.37
 
