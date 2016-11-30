@@ -24,10 +24,6 @@
 %define src_dir %{name}-%{version}
 %define src_tarall %{src_dir}.tar.gz
 
-# Predefined variables:
-# {%_mandir} => normally /usr/share/man (depends on the PDP)
-# %{perl_vendorlib} => /usr/lib/perl5/vendor_perl/
-
 Prefix: /etc
 Prefix: /usr
 
