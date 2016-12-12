@@ -42,6 +42,10 @@ Prefix: /usr
 %define target_man_dir  %{_mandir}
 %define target_data_dir  %{target_prefix}/share/
 %define target_doc_dir  %{target_data_dir}doc/%{name}
+%define src_tagfiles_prefix %{?tagfiles_prefix}%{?!tagfiles_prefix:/usr/share/doc}
+%define src_tagfiles_suffix %{?tagfiles_suffix}%{?!tagfiles_suffix:%{version}/doxygen.tag}
+%define target_htmldirs_prefix ../
+%define target_htmldirs_suffix /
 
 # TODO: Give your summary
 Summary:	Virtual Cluster provisioning tool
@@ -110,7 +114,11 @@ ClustDock unified solution Server provisionning libvirt/docker clusters on the f
 test "x$RPM_BUILD_ROOT" != "x" && rm -rf $RPM_BUILD_ROOT
 %setup
 
-%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir} %{?checkdoc}
+%configure --disable-debug --with-systemdsysdir=%{target_systemd_dir} --datadir=%{target_data_dir} %{?checkdoc} \
+    --with-tagfiles-prefix=%{src_tagfiles_prefix} \
+    --with-tagfiles-suffix=%{src_tagfiles_suffix} \
+    --with-htmldirs-prefix=%{target_htmldirs_prefix} \
+    --with-htmldirs-suffix=%{target_htmldirs_suffix}
 ###############################################################################
 # The current directory is the one main directory of the tar
 # Order of upgrade is:
@@ -133,7 +141,23 @@ cp ChangeLog $RPM_BUILD_ROOT/%{target_doc_dir}
 
 %post
 
+%post doc
+rm -f %{target_doc_dir}/last
+ln -s $( \
+        ls %{target_doc_dir} | \
+            grep '^[0-9]\+[0-9.]*[0-9]\+$' | \
+            sort | tail -n1 \
+    ) %{target_doc_dir}/last
+
 %postun
+
+%postun doc
+rm -f %{target_doc_dir}/last
+ln -s $( \
+        ls %{target_doc_dir} | \
+            grep '^[0-9]\+[0-9.]*[0-9]\+$' | \
+            sort | tail -n1 \
+    ) %{target_doc_dir}/last
 
 %preun
 
