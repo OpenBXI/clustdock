@@ -67,11 +67,12 @@ class LibvirtConnexion(object):
 
     @property
     def instance(self):
-        if self.cnx.isAlive():
-            return self.cnx
-        else:
-            self.cnx.close()
-            self.connect()
+        if self.cnx is None:
+          	self.connect()
+        if not self.cnx.isAlive():
+        	self.cnx.close()
+        	self.connect()
+        return self.cnx
 
 
 class LibvirtNode(clustdock.VirtualNode):
