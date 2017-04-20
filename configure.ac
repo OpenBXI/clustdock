@@ -37,7 +37,7 @@ INIT_BXIPRODUCT(BXIMODULE, [systemd])
 #                   AC_CHECK_LIB([zmq], [zmq_msg_init], [], [AC_MSG_ERROR([Could not find zmq library])])
 #                  ])
 #
-#LDFLAGS+=" $ZMQ_LIBS "
+#LDFLAGS="$LDFLAGS $ZMQ_LIBS "
 #
 ################################# Internal dependencies ###########################
 ### Checks for libraries.
