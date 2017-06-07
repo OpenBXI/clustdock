@@ -27,11 +27,11 @@ class DockerNodeTest(unittest.TestCase):
 
     def test_encode_decode_docker_node(self):
         """Test encoding/decoding of docker node"""
-        node = dnode.DockerNode("dv0", "bullbix/slurm")
+        node = dnode.DockerNode("cn0", "test/example")
         node_desc = server.encode_node(node)
         expected = {
-            'img': 'bullbix/slurm',
-            'clustername': 'dv',
+            'img': 'test/example',
+            'clustername': 'cn',
             'before_start': None,
             'after_start': None,
             'after_end': None,
@@ -39,7 +39,7 @@ class DockerNodeTest(unittest.TestCase):
             'host': 'localhost',
             'idx': 0,
             'ip': '',
-            'name': 'dv0',
+            'name': 'cn0',
             'add_iface': None,
             'status': dnode.STATUS['created'],
         }
@@ -56,7 +56,7 @@ echo -n "$1 $2 $3"
         tmpfile = mktemp(prefix="clustdock-hook-")
         with open(tmpfile, 'w') as myfile:
             myfile.write(content)
-        node = dnode.DockerNode("dv0", "bullbix/slurm")
+        node = dnode.DockerNode("cn0", "test/example")
         rc, stdout, stderr = node.run_hook(tmpfile, clustdock.DOCKER_NODE)
         self.assertEqual(rc, 126)
         self.assertEqual(stdout, "")
