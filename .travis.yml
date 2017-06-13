@@ -14,4 +14,6 @@ before_install:
         - ./misc/travis/install-dependencies.sh
 install:
         - ./bootstrap.sh
+script:
+        - make check
 
