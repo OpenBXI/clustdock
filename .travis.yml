@@ -12,6 +12,7 @@ before_install:
         - pip install --upgrade pip
         - pip install configobj coverage clustershell msgpack-python signalfd libvirt-python ipaddr lxml
         - ./misc/travis/install-dependencies.sh
+        - pip install pyzmq
 install:
         - ./bootstrap.sh && ./configure
 script:
