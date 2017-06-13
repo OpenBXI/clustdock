@@ -10,7 +10,7 @@ compiler:
 
 before_install:
         - sudo apt-get update -qq
-        - sudo apt-get install -qq libtool pkg-config build-essential autoconf automake pkg-config python-pipi libguestfs-tools
+        - sudo apt-get install -qq libtool pkg-config build-essential autoconf automake pkg-config python-pip libguestfs-tools
         - pip install configobj coverage clustershell msgpack-python signalfd libvirt-python ipaddr lxml
         - ./misc/travis/install-dependencies.sh
 install:
