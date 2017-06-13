@@ -1,12 +1,10 @@
 language:
-        - c
+        - python
 python:
         - 2.7
+        - "pypy"
 dist: trusty
 sudo: required
-compiler:
-        - clang
-        - gcc
 
 before_install:
         - sudo apt-get update -qq
