@@ -13,7 +13,7 @@ before_install:
         - pip install configobj coverage clustershell msgpack-python signalfd libvirt-python ipaddr lxml
         - ./misc/travis/install-dependencies.sh
 install:
-        - ./bootstrap.sh
+        - ./bootstrap.sh && ./configure
 script:
         - make check
 
