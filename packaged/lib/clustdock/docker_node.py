@@ -13,7 +13,7 @@ import sys
 import re
 import os
 import subprocess as sp
-from ipaddr import IPv4Network, AddressValueError
+from ipaddr import IPv4Network
 import clustdock
 
 _LOGGER = logging.getLogger(__name__)

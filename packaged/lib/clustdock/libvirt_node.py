@@ -13,7 +13,6 @@ import sys
 import os
 import subprocess as sp
 from lxml import etree
-import time
 import libvirt
 import clustdock
 

@@ -14,8 +14,6 @@ import sys
 import msgpack
 from ClusterShell.NodeSet import NodeSet
 
-from clustdock import VirtualNode as vn
-
 _LOGGER = logging.getLogger(__name__)
 
 STATUS = {
