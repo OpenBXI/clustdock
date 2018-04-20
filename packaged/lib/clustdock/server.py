@@ -282,7 +282,6 @@ class ClustdockWorker(object):
 
         _LOGGER.debug(spawned_nodes)
         nodelist = str(NodeSet.fromlist(spawned_nodes))
-        errors_nodelist = str(NodeSet.fromlist(nodes_to_del))
         self.rep_sock.send(msgpack.packb((nodelist, errors)))
 
     def stop_nodes(self, nodes):

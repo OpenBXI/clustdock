@@ -118,11 +118,10 @@ class LibvirtNode(clustdock.VirtualNode):
 
     def getmetadata(self, domain):
         """Get clustdock metadata from given domain"""
-        is_clustdock = None
         try:
-            is_clustdock = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+            domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
                                         CLUSTDOCK_METADATA)
-        except libvirt.libvirtError as exc:
+        except libvirt.libvirtError:
             _LOGGER.error("Domain '%s' not spawned via clustdock", self.name)
             return
         try:
@@ -130,7 +129,7 @@ class LibvirtNode(clustdock.VirtualNode):
                                      AFTER_END_METADATA)
             tree = etree.fromstring(after_end)
             self.after_end = tree.xpath("//after_end/@path")[0]
-        except libvirt.libvirtError as exc:
+        except libvirt.libvirtError:
             _LOGGER.debug("no after_end hook set for domain '%s'", self.name)
 
     def start(self, pipe):
@@ -292,7 +291,7 @@ class LibvirtNode(clustdock.VirtualNode):
         cnx = LibvirtConnexion(self.host)
         try:
             domain = cnx.instance.lookupByName(self.name)
-        except libvirt.libvirtError as exc:
+        except libvirt.libvirtError:
             _LOGGER.error("Couldn't find domain '{}'\n".format(self.name))
             cnx.instance.close()
             return ip

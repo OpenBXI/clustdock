@@ -41,7 +41,7 @@ def main(args):
                       args.cfgfile)
         sys.exit(1)
 
-    hostlist = clustdock.server.extract_hosts(args.cfg['hosts'])
+    hostlist = clustdock.server.extract_hosts(hosts)
     _LOGGER.debug("Managed hosts: %s", hostlist)
 
     fd = signalfd.signalfd(-1, [signal.SIGTERM], signalfd.SFD_CLOEXEC)
@@ -60,7 +60,7 @@ def main(args):
     for idx in xrange(0, 5):
         worker = clustdock.server.ClustdockWorker(THREAD_SOCK,
                                                   idx,
-                                                  args.cfg['profiles'],
+                                                  profiles,
                                                   hostlist,
                                                   args.cfg.get('docker_port', None))
         _LOGGER.debug("Starting worker %d", idx)
