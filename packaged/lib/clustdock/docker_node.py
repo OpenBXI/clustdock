@@ -241,12 +241,12 @@ class DockerNode(clustdock.VirtualNode):
             raise AddIfaceException("Cannot find ip for bridge %s" % br, br)
         # test if it's an ovs bridge
         rc = sp.call("%s ovs-vsctl br-exists %s &> /dev/null" % (
-                prefix, br), shell=True)
+            prefix, br), shell=True)
         if rc == 0:
             # It's an ovs bridge
             cmd = "%s ovs-docker add-port %s %s %s" % (
                   prefix, br, eth, self.name
-                  )
+            )
             cmd += " --ipaddress=%s" % ip if ip != "dhcp" else ""
 
             _LOGGER.debug("Trying to execute: %s", cmd)

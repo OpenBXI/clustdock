@@ -52,8 +52,8 @@ class ClustdockWorker(object):
     def start(self, loglevel, logfile):
         """Start to work !"""
         logging.basicConfig(level=loglevel,
-        stream=logfile,
-        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
+                            stream=logfile,
+                            format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
         global _LOGGER
         _LOGGER = logging.getLogger(__name__)
         self.init_sockets()

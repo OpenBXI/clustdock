@@ -100,15 +100,15 @@ if __name__ == "__main__":
                         help="Configuration file. default: %(default)s")
     # Logging level
     parser.add_argument('--loglevel', '-l', metavar='LEVEL',
-        help='The log level to use', default=logging.WARNING)
+                        help='The log level to use', default=logging.WARNING)
     parser.add_argument('--logfile', '-f',
-        type=argparse.FileType('w'),
-        help='The logfile to use. Default sys.stdout', default=sys.stdout)
+                        type=argparse.FileType('w'),
+                        help='The logfile to use. Default sys.stdout', default=sys.stdout)
     _args = parser.parse_args()
     cfg = ConfigObj(_args.cfgfile, unrepr=True)
     _args.cfg = cfg
     logging.basicConfig(level=_args.loglevel,
-        stream=_args.logfile,
-        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
+                        stream=_args.logfile,
+                        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|%(funcName)s|%(lineno)d| %(message)s")
     _LOGGER = logging.getLogger()
     sys.exit(main(_args))

@@ -67,10 +67,10 @@ class LibvirtConnexion(object):
     @property
     def instance(self):
         if self.cnx is None:
-          	self.connect()
+            self.connect()
         if not self.cnx.isAlive():
-        	self.cnx.close()
-        	self.connect()
+            self.cnx.close()
+            self.connect()
         return self.cnx
 
 
@@ -120,13 +120,13 @@ class LibvirtNode(clustdock.VirtualNode):
         """Get clustdock metadata from given domain"""
         try:
             domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
-                                        CLUSTDOCK_METADATA)
+                            CLUSTDOCK_METADATA)
         except libvirt.libvirtError:
             _LOGGER.error("Domain '%s' not spawned via clustdock", self.name)
             return
         try:
             after_end = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
-                                     AFTER_END_METADATA)
+                                        AFTER_END_METADATA)
             tree = etree.fromstring(after_end)
             self.after_end = tree.xpath("//after_end/@path")[0]
         except libvirt.libvirtError:

@@ -61,9 +61,9 @@ if __name__ == "__main__":
                               help="Number of nodes. default: %(default)s")
     # Host
     parser_spawn.add_argument("-n", "--host",
-                        default=None,
-                        dest="host",
-                        help="Host on which nodes will be spawned. Default is localhost.")
+                              default=None,
+                              dest="host",
+                              help="Host on which nodes will be spawned. Default is localhost.")
     # stop command
     parser_stop = subparsers.add_parser("stop",
                                         help="Stop specified nodes")
@@ -72,12 +72,13 @@ if __name__ == "__main__":
 
     # get_ip command
     parser_get_ip = subparsers.add_parser("getip",
-                                        help="Get @IP of specified nodes")
+                                          help="Get @IP of specified nodes")
     parser_get_ip.add_argument('nodeset',
-                             help="Node names (nodeset)")
+                               help="Node names (nodeset)")
+
     # list command
     parser_list = subparsers.add_parser("list",
-                        help="List running docker containers and VMs on managed hosts")
+                                        help="List running docker containers and VMs on managed hosts")
     parser_list.add_argument('-a', '--all',
                              dest='allnodes',
                              action="store_true",
@@ -95,8 +96,8 @@ if __name__ == "__main__":
 
     _args = parser.parse_args()
     logging.basicConfig(level=_args.loglevel,
-        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|"
-               "%(funcName)s|%(lineno)d| %(message)s")
+                        format="%(levelname)s|%(asctime)s|%(process)d|%(filename)s|"
+                        "%(funcName)s|%(lineno)d| %(message)s")
     _LOGGER = logging.getLogger()
 
     # Load configuration
