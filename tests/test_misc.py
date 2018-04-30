@@ -15,7 +15,6 @@
 '''Clustdock server testsuite'''
 
 import unittest
-import clustdock
 import clustdock.server as server
 from StringIO import StringIO
 from configobj import ConfigObj

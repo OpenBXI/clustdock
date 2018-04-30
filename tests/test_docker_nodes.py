@@ -19,7 +19,6 @@ import clustdock.docker_node as dnode
 import clustdock.server as server
 import clustdock
 import os
-from lxml import etree
 from tempfile import mktemp
 
 
@@ -77,6 +76,7 @@ echo -n "$1 $2 $3"
                 os.remove(path)
             except OSError:
                 pass
+
 
 if __name__ == "__main__":
     unittest.main()

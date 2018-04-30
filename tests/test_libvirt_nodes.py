@@ -170,14 +170,14 @@ class LibvirtNodeTest(unittest.TestCase):
   <model type="virtio"/>
 </interface></devices>
 </domain>"""
-        node = lnode.LibvirtNode("vnode0", "00-START-BY-CLONING-ME", 
+        node = lnode.LibvirtNode("vnode0", "00-START-BY-CLONING-ME",
                                  "/mnt/vms", add_iface="brama0")
         new_dom = node.build_xml(dom)
         self.assertEqual(new_dom, expected_dom)
 
     def test_set_memory(self):
         '''Test the memory setting'''
-        
+
         dom = """<domain type='kvm' id='9'>
   <name>vnode0</name>
   <uuid>81b20639-dba5-477e-a2da-07c88ad33f86</uuid>
@@ -193,7 +193,7 @@ class LibvirtNodeTest(unittest.TestCase):
   </cpu>
 </domain>
 """
-        node = lnode.LibvirtNode("vnode0", "00-START-BY-CLONING-ME", 
+        node = lnode.LibvirtNode("vnode0", "00-START-BY-CLONING-ME",
                                  "/mnt/vms", mem="8192")
         tree = etree.fromstring(dom)
         new_tree = node._set_memory(tree)
@@ -201,10 +201,10 @@ class LibvirtNodeTest(unittest.TestCase):
         self.assertNotIn("<memory unit='KiB'>9194496</memory>", new_dom)
         self.assertNotIn("<currentMemory unit='KiB'>9194304</currentMemory>", new_dom)
         self.assertIn('<memory unit="MB">8192</memory>', new_dom)
-    
+
     def test_set_memory_no_current(self):
         '''Test the memory setting without currentMemory field'''
-        
+
         dom = """<domain type='kvm' id='9'>
   <name>vnode0</name>
   <uuid>81b20639-dba5-477e-a2da-07c88ad33f86</uuid>
@@ -220,16 +220,16 @@ class LibvirtNodeTest(unittest.TestCase):
 </domain>
 """
         node = lnode.LibvirtNode("vnode0", "00-START-BY-CLONING-ME",
-        "/mnt/vms", mem="8192")
+                                 "/mnt/vms", mem="8192")
         tree = etree.fromstring(dom)
         new_tree = node._set_memory(tree)
         new_dom = etree.tostring(new_tree)
         self.assertNotIn("<memory unit='KiB'>9194496</memory>", new_dom)
         self.assertIn('<memory unit="MB">8192</memory>', new_dom)
-    
+
     def test_set_cpus(self):
         '''Test the cpu setting'''
-        
+
         dom = """<domain type='kvm' id='9'>
   <name>vnode0</name>
   <uuid>81b20639-dba5-477e-a2da-07c88ad33f86</uuid>
@@ -309,6 +309,7 @@ echo -n "$1 $2 $3"
                 os.remove(path)
             except OSError:
                 pass
+
 
 if __name__ == "__main__":
     unittest.main()

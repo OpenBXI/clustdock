@@ -16,9 +16,7 @@
 
 import unittest
 import clustdock
-import clustdock.server as server
 import clustdock.virtual_cluster as vc
-import libvirt
 
 
 class VirtualNodeTest(unittest.TestCase):
