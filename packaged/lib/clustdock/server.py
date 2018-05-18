@@ -242,7 +242,7 @@ class ClustdockWorker(object):
             base_range.add_range(idx_min, idx_max)
             _LOGGER.debug("New rangeset: %s", base_range)
             base_nodeset.update(NodeSetBase(name + '%s',
-                                RangeSet.fromlist([range(idx_min, idx_max)])))
+                                            RangeSet.fromlist([range(idx_min, idx_max)])))
             _LOGGER.debug("New nodeset: %s", base_nodeset)
             ndset_inter = nodeset.intersection(base_nodeset)
 
