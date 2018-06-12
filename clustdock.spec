@@ -78,8 +78,6 @@ Provides: %{name}
 Requires: zeromq
 Requires: python-msgpack >= 0.4.1
 
-#Requires: bxibase >= 3.2.0
-#BuildRequires: flex == 2.5.37
 
 #TODO: Give a description (seen by rpm -qi) (No more than 80 characters)
 %description
