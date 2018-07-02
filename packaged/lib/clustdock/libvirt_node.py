@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 '''
-@author Antoine Sax <antoine.sax@atos.net>
-@copyright 2015  Bull S.A.S.  -  All rights reserved.\n
+@author Antoine Sax <<antoine.sax@atos.net>>
+@copyright 2018 Bull S.A.S.  -  All rights reserved.\n
            This is not Free or Open Source software.\n
            Please contact Bull SAS for details about its license.\n
-           Bull - Rue Jean Jaurès - B.P. 68 - 78340 Les Clayes-sous-Bois
+           Bull - Rue Jean Jaures - B.P. 68 - 78340 Les Clayes-sous-Bois
 @file clustdock/libvirt_node.py
 @namespace clustdock.libvirt_node LibvirtNode definition
 '''
@@ -13,7 +13,6 @@ import sys
 import os
 import subprocess as sp
 from lxml import etree
-import time
 import libvirt
 import clustdock
 
@@ -68,10 +67,10 @@ class LibvirtConnexion(object):
     @property
     def instance(self):
         if self.cnx is None:
-          	self.connect()
+            self.connect()
         if not self.cnx.isAlive():
-        	self.cnx.close()
-        	self.connect()
+            self.cnx.close()
+            self.connect()
         return self.cnx
 
 
@@ -119,19 +118,18 @@ class LibvirtNode(clustdock.VirtualNode):
 
     def getmetadata(self, domain):
         """Get clustdock metadata from given domain"""
-        is_clustdock = None
         try:
-            is_clustdock = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
-                                        CLUSTDOCK_METADATA)
-        except libvirt.libvirtError as exc:
+            domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
+                            CLUSTDOCK_METADATA)
+        except libvirt.libvirtError:
             _LOGGER.error("Domain '%s' not spawned via clustdock", self.name)
             return
         try:
             after_end = domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT,
-                                     AFTER_END_METADATA)
+                                        AFTER_END_METADATA)
             tree = etree.fromstring(after_end)
             self.after_end = tree.xpath("//after_end/@path")[0]
-        except libvirt.libvirtError as exc:
+        except libvirt.libvirtError:
             _LOGGER.debug("no after_end hook set for domain '%s'", self.name)
 
     def start(self, pipe):
@@ -293,7 +291,7 @@ class LibvirtNode(clustdock.VirtualNode):
         cnx = LibvirtConnexion(self.host)
         try:
             domain = cnx.instance.lookupByName(self.name)
-        except libvirt.libvirtError as exc:
+        except libvirt.libvirtError:
             _LOGGER.error("Couldn't find domain '{}'\n".format(self.name))
             cnx.instance.close()
             return ip

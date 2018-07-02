@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 '''
-@author Antoine Sax <antoine.sax@atos.net>
-@copyright 2015  Bull S.A.S.  -  All rights reserved.\n
+@author Antoine Sax <<antoine.sax@atos.net>>
+@copyright 2018 Bull S.A.S.  -  All rights reserved.\n
            This is not Free or Open Source software.\n
            Please contact Bull SAS for details about its license.\n
-           Bull - Rue Jean Jaurès - B.P. 68 - 78340 Les Clayes-sous-Bois
+           Bull - Rue Jean Jaures - B.P. 68 - 78340 Les Clayes-sous-Bois
 @file clustdock/__init__.py
 @namespace clustdock Clustdock Module
 '''
@@ -13,8 +13,6 @@ import zmq
 import sys
 import msgpack
 from ClusterShell.NodeSet import NodeSet
-
-from clustdock import VirtualNode as vn
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -17,7 +17,7 @@
 # and to understand the SVN tagging process.
 # If you don't care, then, just starts with Bull.1.0%{?dist}.%{?revision}snapshot
 # and run 'make tag' when you want to tag.
-%define release Bull.5.0%{?dist}.%{?revision}snapshot
+%define release Bull.5.2%{?dist}.%{?revision}snapshot
 
 # Warning: Bull's continuous compilation tools refuse the use of
 # %release in the src_dir variable!
@@ -62,7 +62,7 @@ Source:		%{src_tarall}
 Group:		Development/System
 BuildRoot:	%{_tmppath}/%{name}-root
 # Automatically filled in by PDP: it should not appear therefore!
-#Packager:	Bull <help@bull.net>
+#Packager:	BXIHL <bxihl@atos.net>
 Distribution:	Bull HPC
 
 # Automatically filled in by PDP: it should not appear therefore!
@@ -78,8 +78,6 @@ Provides: %{name}
 Requires: zeromq
 Requires: python-msgpack >= 0.4.1
 
-#Requires: bxibase >= 3.2.0
-#BuildRequires: flex == 2.5.37
 
 #TODO: Give a description (seen by rpm -qi) (No more than 80 characters)
 %description
