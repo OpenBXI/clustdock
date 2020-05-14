@@ -321,6 +321,9 @@ class LibvirtNode(clustdock.VirtualNode):
         path.set('file', self.img_path)
         dom_name = tree.xpath("/domain/name")
         dom_name[0].text = self.name
+        cpu_model = tree.xpath("/domain/cpu")[0]
+        if etree.iselement(cpu_model):
+            dom.remove(cpu_model)
         uuid = tree.xpath("/domain/uuid")[0]
         if etree.iselement(uuid):
             dom.remove(uuid)
